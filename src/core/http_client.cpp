@@ -34,7 +34,7 @@ static size_t write_callback(char* ptr, size_t size, size_t nmemb, void* userdat
 static size_t header_callback(char* buffer, size_t size, size_t nitems, void* userdata) {
     size_t total = size * nitems;
     std::string_view hv(buffer, total);
-    auto* headers = static_cast<std::map<std::string, std::string>*(userdata);
+    auto* headers = static_cast<std::map<std::string, std::string>*>(userdata);
 
     auto pos = hv.find(':');
     if (pos != std::string_view::npos) {
@@ -72,7 +72,7 @@ HttpClient::HttpClient(const Options& opts) : opts_(opts) {
  * @brief  Clean up global libcurl state.
  */
 HttpClient::~HttpClient() {
-    curl_globabl_cleanup();
+    curl_global_cleanup();
 }
 
 /**
