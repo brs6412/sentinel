@@ -28,7 +28,7 @@ struct CrawlResult {
 /**
  * @brief Crawls URLs and extracts links and forms
  */
-class Discovery {
+class Crawler {
 public:
     /**
      * @brief Options controlling crawl behavior
@@ -45,11 +45,11 @@ public:
     };
 
     /**
-     * @brief Constructs a Discovery object
+     * @brief Constructs a Crawler object
      * @param client Reference to HttpClient for fetching pages
      * @param opts Crawl options
      */
-    Discovery(const HttpClient& client, const Options& opts = Options());
+    Crawler(const HttpClient& client, const Options& opts = Options());
 
     /**
      * @brief Add a seed URL to start crawling from.
