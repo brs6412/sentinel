@@ -1,9 +1,9 @@
 /**
- * @file discovery.cpp
+ * @file crawler.cpp
  * @brief Web crawler using gumbo and http_client
  */
 
-#include "discovery.h"
+#include "crawler.h"
 #include <gumbo.h>
 #include <fstream>
 #include <sstream>
@@ -20,17 +20,17 @@ static std::string to_lower(std::string s) {
     return s;
 }
 
-/// Init Discovery with HttpClient reference and config options.
-Discovery::Discovery(const HttpClient& client, const Options& opts)
+/// Init Crawler with HttpClient reference and config options.
+Crawler::Crawler(const HttpClient& client, const Options& opts)
     : client_(client), opts_(opts) {}
 
 /// Add a new starting URL to seed list.
-void Discovery::add_seed(const std::string& url) {
+void Crawler::add_seed(const std::string& url) {
     seeds_.push_back(url);
 }
 
 /// Read an OpenAPI definition.
-bool Discovery::load_openapi_file(const std::string& path) {
+bool Crawler::load_openapi_file(const std::string& path) {
     std::ifstream in(path);
     if (!in.is_open()) return false;
     try {
@@ -58,7 +58,7 @@ static std::string join_url( const std::string& scheme,
 }
 
 /// Extract origin from a full URL.
-std::string Discovery::origin_of(const std::string& url) const {
+std::string Crawler::origin_of(const std::string& url) const {
     CURLU* h = curl_url();
     if (!h) return {};
     CURLUcode rc = curl_url_set(h, CURLUPART_URL, url.c_str(), 0);
@@ -89,7 +89,7 @@ std::string Discovery::origin_of(const std::string& url) const {
 }
 
 /// Resolve href into an absolute URL using base as reference.
-std::string Discovery::normalize_url(const std::string& base, const std::string& href) const {
+std::string Crawler::normalize_url(const std::string& base, const std::string& href) const {
     if (href.empty()) return {};
     
     // Detect absolute URLs (http://, https://, ...) 
@@ -217,7 +217,7 @@ static void extract_forms(
 }
 
 /// Parse HTML document and extract <a> links and <form> elements.
-void Discovery::parse_html(
+void Crawler::parse_html(
     const std::string& base_url, 
     const std::string& body, 
     std::set<std::string>& out_links,
@@ -273,7 +273,7 @@ void Discovery::parse_html(
 }
 
 /// Determine if crawling a given path on a site is allowed (check robots.txt).
-bool Discovery::robots_allows(const std::string& origin, const std::string& path) const {
+bool Crawler::robots_allows(const std::string& origin, const std::string& path) const {
     if (!opts_.respect_robots) return true;
 
     // Fetch origin + /robots.txt and parse Disallow lines
@@ -328,7 +328,7 @@ bool Discovery::robots_allows(const std::string& origin, const std::string& path
 }
 
 /// Perform web crawl process starting from seeds_.
-std::vector<CrawlResult> Discovery::run() {
+std::vector<CrawlResult> Crawler::run() {
     std::vector<CrawlResult> results;
     if (seeds_.empty()) {
         return results;
