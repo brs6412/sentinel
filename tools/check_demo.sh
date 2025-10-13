@@ -1,10 +1,33 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Default fixture locations 
+# Override via env if needed
+: "${ENDPOINTS:=apps/demo_server/fixtures/endpoints.small.jsonl}"
+: "${FINDINGS:=apps/demo_server/fixtures/findings.demo.jsonl}"
+
+export ENDPOINTS FINDINGS
+
+echo "▶ Using fixtures:"
+echo "   ENDPOINTS = $ENDPOINTS"
+echo "   FINDINGS  = $FINDINGS"
+
+if [[ ! -f "$ENDPOINTS" ]]; then
+  echo "❌ Missing endpoints JSONL: $ENDPOINTS"; exit 1
+fi
+if [[ ! -f "$FINDINGS" ]]; then
+  echo "❌ Missing findings JSONL:  $FINDINGS"; exit 1
+fi
+
+echo "▶ Linting JSONL files..."
+grep -v '^[[:space:]]*$' "$ENDPOINTS" | while IFS= read -r l; do python -c 'import json,sys; json.loads(sys.argv[1])' "$l"; done
+grep -v '^[[:space:]]*$' "$FINDINGS"  | while IFS= read -r l; do python -c 'import json,sys; json.loads(sys.argv[1])' "$l"; done
+echo "✅ JSONL OK"
+
 HOST="127.0.0.1:8080"
 
-echo "▶ healthz should be 200..."
-code="$(curl -s -o /dev/null -w "%{http_code}" http://$HOST/healthz)"
+echo "▶ /healthz should be 200..."
+code="$(curl -s -o /dev/null -w "%{http_code}" "http://$HOST/healthz")"
 if [[ "$code" != "200" ]]; then
   echo "❌ /healthz returned $code (expected 200)"; exit 1
 fi
