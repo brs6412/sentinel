@@ -34,8 +34,14 @@ public:
      * @brief Options controlling crawl behavior
      */
     struct Options {
-        int max_depth = 2;
-        bool respect_robots = true;
+        int max_depth;
+        bool respect_robots;
+
+        /// Default constructor
+        Options()
+            : max_depth(2),
+              respect_robots(true)
+        {}
     };
 
     /**
@@ -106,5 +112,5 @@ private:
      * @param path Path to check.
      * @retrurn true if allowed, false otherwise
      */
-    bool robot_allows(const std::string& origin, const std::string& path) const;
+    bool robots_allows(const std::string& origin, const std::string& path) const;
 };
