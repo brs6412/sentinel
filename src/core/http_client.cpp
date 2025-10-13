@@ -27,11 +27,11 @@ static size_t header_callback(char* buffer, size_t size, size_t nitems, void* us
 
         size_t val_start = pos + 1;
         while (val_start < hv.size() && (hv[val_start] == ' ' || hv[val_start] == '\t'))
-            ++val_start;
+            val_start++;
 
         size_t val_end = hv.size();
         while (val_end > val_start && (hv[val_end - 1] == '\r' || hv[val_end - 1] == '\n'))
-            --val_end; 
+            val_end--;
         std::string value(hv.substr(val_start, val_end - val_start));
 
         for (auto &c : name) c = static_cast<char>(std::tolower(c));
