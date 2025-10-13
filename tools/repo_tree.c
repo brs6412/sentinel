@@ -1,3 +1,28 @@
+// repo_tree.c — print a simple directory tree for the Sentinel repo.
+//
+// -----------------------------------------------------------------------------
+// HOW TO BUILD AND RUN
+// -----------------------------------------------------------------------------
+// 1. From the repo root, compile:
+//      clang -std=c17 -Wall -Wextra -O2 tools/repo_tree.c -o tools/repo_tree
+//
+// 2. Run to print the entire repo tree:
+//      ./tools/repo_tree
+//
+// 3. Or print a specific subdirectory:
+//      ./tools/repo_tree apps
+//
+// (Optional) Add to your Makefile:
+//      tree: tools/repo_tree
+//          ./tools/repo_tree
+//
+// -----------------------------------------------------------------------------
+// Notes:
+//  - Skips common junk (.git, build, __pycache__, etc.).
+//  - Does not follow symlinks.
+//  - Uses UTF-8 connectors (├──, └──, │).  Make sure your terminal is UTF-8.
+// -----------------------------------------------------------------------------
+
 #define _XOPEN_SOURCE 700
 #include <dirent.h>
 #include <errno.h>
