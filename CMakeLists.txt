@@ -25,3 +25,6 @@ add_executable(sentinel
 )
 target_link_libraries(sentinel core ${CURL_LIBRARIES})
 
+
+# Build the demo server app
+add_subdirectory(apps/demo_server)

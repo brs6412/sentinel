@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Default fixture locations 
-# Override via env if needed
 : "${ENDPOINTS:=apps/demo_server/fixtures/endpoints.small.jsonl}"
 : "${FINDINGS:=apps/demo_server/fixtures/findings.demo.jsonl}"
-
 export ENDPOINTS FINDINGS
+
+# Short, predictable curl timeouts
+CURL_OPTS=( -s --connect-timeout 2 -m 3 )
 
 echo "▶ Using fixtures:"
 echo "   ENDPOINTS = $ENDPOINTS"
@@ -27,20 +27,20 @@ echo "✅ JSONL OK"
 HOST="127.0.0.1:8080"
 
 echo "▶ /healthz should be 200..."
-code="$(curl -s -o /dev/null -w "%{http_code}" "http://$HOST/healthz")"
+code="$(curl "${CURL_OPTS[@]}" -o /dev/null -w "%{http_code}" "http://$HOST/healthz" || true)"
 if [[ "$code" != "200" ]]; then
-  echo "❌ /healthz returned $code (expected 200)"; exit 1
+  echo "❌ /healthz returned ${code:-<no response>} (expected 200). Is the demo server running on 127.0.0.1:8080?"; exit 1
 fi
 echo "✅ /healthz OK"
 
 echo "▶ /no-headers should NOT include CSP/XFO/HSTS..."
-if curl -is "http://$HOST/no-headers" | grep -Ei '(^|[[:space:]])(content-security-policy|x-frame-options|strict-transport-security)[[:space:]]*:' >/dev/null; then
+if curl "${CURL_OPTS[@]}" -i "http://$HOST/no-headers" | grep -Ei '(^|[[:space:]])(content-security-policy|x-frame-options|strict-transport-security)[[:space:]]*:' >/dev/null; then
   echo "❌ Security header found on /no-headers (should be missing)"; exit 1
 fi
 echo "✅ /no-headers missing CSP/XFO/HSTS (as intended)"
 
 echo "▶ /set-cookie should include Set-Cookie but NOT Secure/HttpOnly..."
-hdrs="$(curl -is "http://$HOST/set-cookie")"
+hdrs="$(curl "${CURL_OPTS[@]}" -i "http://$HOST/set-cookie")"
 
 if ! grep -i '^Set-Cookie:' <<<"$hdrs" >/dev/null; then
   echo "❌ No Set-Cookie on /set-cookie"; exit 1

@@ -13,3 +13,10 @@ lint-fixtures:
 	@echo OK
 
 lint: lint-config lint-fixtures
+
+.PHONY: build-demo run-demo
+build-demo:
+\tcmake -S . -B build && cmake --build build -j
+
+run-demo: build-demo
+\t./build/apps/demo_server/demo_server

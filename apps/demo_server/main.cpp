@@ -1,6 +1,6 @@
 #include <iostream>
 #include <string>
-#include <ctime>
+#include <cstdio>
 #include "httplib.h"
 
 using namespace httplib;
@@ -14,7 +14,7 @@ int main() {
     res.set_content("ok", "text/plain");
   });
 
-  // Simple landing page with links to the “intentionally bad” routes below.
+  // Simple landing page with links to the intentionally bad routes below.
   svr.Get("/", [](const Request&, Response& res) {
     const char* html =
       "<!doctype html><html><body>"
@@ -42,8 +42,15 @@ int main() {
     res.set_content("<p>Set-Cookie sent without Secure/HttpOnly (by design).</p>", "text/html");
   });
 
-  std::cout << "Listening on http://127.0.0.1:8080\n";
-  // Bind to localhost:8080 per the acceptance criteria.
-  svr.listen("127.0.0.1", 8080);
+  std::cout << "Attempting to bind to http://127.0.0.1:8080\n";
+
+  // Use bind_to_port + listen_after_bind so we can return non-zero on bind failure.
+  if (!svr.bind_to_port("127.0.0.1", 8080)) {
+    std::fprintf(stderr, "ERROR: failed to bind 127.0.0.1:8080. Is the port in use?\n");
+    return 1;
+  }
+
+  // This will block and serve requests after a successful bind.
+  svr.listen_after_bind();
   return 0;
 }
