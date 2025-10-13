@@ -61,7 +61,7 @@ static std::string join_url( const std::string& scheme,
 std::string Discovery::origin_of(const std::string& url) const {
     CURLU* h = curl_url();
     if (!h) return {};
-    CURLCODE rc = curl_url_set(h, CURLUPART_URL, url.c_str(), 0);
+    CURLUcode rc = curl_url_set(h, CURLUPART_URL, url.c_str(), 0);
     if (rc != CURLUE_OK) { 
         curl_url_cleanup(h); 
         return {}; 
@@ -116,23 +116,22 @@ std::string Discovery::normalize_url(const std::string& base, const std::string&
         return {};
     }
 
-    CURLUcode flags = CURLU_RESOLVE | CURLU_URLENCODE;
     // Resolve href relative to base
-    if (curl_url_set(resolved_h, CURLUPART_URL, href.c_str(), flags) != CURLUE_OK) {
+    if (curl_url_set(resolved_h, CURLUPART_URL, href.c_str(), CURLU_URLENCODE) != CURLUE_OK) {
         curl_url_cleanup(base_h);
         curl_url_cleanup(resolved_h);
         return {};
     }
 
     // Combine 
-    if (curl_url_set(resolved_h, CURLUPART_URL, href.c_str(), flags) != CURLUE_OK) {
+    if (curl_url_set(resolved_h, CURLUPART_URL, href.c_str(), CURLU_URLENCODE) != CURLUE_OK) {
         curl_url_cleanup(base_h);
         curl_url_cleanup(resolved_h);
         return {};
     }
 
     // Extract final normalized URL
-    char* out_url nullptr;
+    char* out_url = nullptr;
     if (curl_url_get(resolved_h, CURLUPART_URL, &out_url, 0) != CURLUE_OK) {
         curl_url_cleanup(base_h);
         curl_url_cleanup(resolved_h);
@@ -196,7 +195,7 @@ static void extract_forms(
                 }
             }
             // Add child nodes of current element to DFS stack
-            GumboVector* children = &n->element.children;
+            GumboVector* children = &n->v.element.children;
             for (unsigned int i = 0; i < children->length; i++) {
                 GumboNode* child = static_cast<GumboNode*>(children->data[i]);
                 if (child) {
@@ -247,7 +246,7 @@ void Discovery::parse_html(
                 }
             }
         } else if (node->v.element.tag == GUMBO_TAG_FORM) {
-            extract forms(node, base_url, out_forms);
+            extract_forms(node, base_url, out_forms);
         }
 
         // Push child nodes onyo stack
@@ -288,7 +287,7 @@ bool Discovery::robots_allows(const std::string& origin, const std::string& path
     }
     if (resp.status >= 400) return true;
 
-    std::istring ss(resp.body);
+    std::istringstream ss(resp.body);
     std::string line;
     std::vector<std::string> disallows;
     while (std::getline(ss, line)) {
