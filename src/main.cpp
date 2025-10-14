@@ -11,7 +11,7 @@ int main(int argc, char** argv) {
     }
 
     std::string target;
-    std::string outdir = "./artifacts";
+    std::string outfile = "scan_results.jsonl";
     std::string openapi;
     for (int i = 1; i < argc; i++) {
         std::string a = argv[1];
@@ -19,7 +19,7 @@ int main(int argc, char** argv) {
             target = argv[++i];
             continue;
         } else if (a == "--out" && i + 1 < argc) {
-            outdir = argv[++i];
+            outfile = argv[++i];
             continue;
         } else if (a == "--openapi" && i + 1 < argc) {
             openapi = argv[++i];
@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    std::filesystem::create_directories(outdir);
+    std::filesystem::create_directories("./artifacts");
 
     HttpClient::Options opts;
     opts.follow_redirects = true;
@@ -52,26 +52,24 @@ int main(int argc, char** argv) {
     for (auto &r : results) {
         nlohmann::json j;
         j["url"] = r.url;
-        j["status"] = r.status;
-        j["links"] = nlohmann::json::array();
-        for (auto &link : r.links) {
-            j["links"].push_back(link);
+        j["method"] = r.method;
+        j["params"] = nlohmann::json::array();
+        for (const auto& [name,value] : r.params) {
+            j["params"].push_back({name, value});
         }
-        j["forms"] = nlohmann::json::array();
-        for (auto &form : r.forms) {
-            nlohmann::json form_json;
-            form_json["action"] = form.action;
-            form_json["method"] = form.method;
-            form_json["inputs"] = nlohmann::json::array();
-            for (auto &iv : form.inputs) {
-                form_json["inputs"].push_back({{"name", iv.first}, {"value", iv.second}});
-            }
-            j["forms"].push_back(form_json);
+        j["headers"] = nlohmann::json::array();
+        for (const auto& [name,value] : r.headers) {
+            j["headers"].push_back({name, value});
         }
+        j["cookies"] = r.cookies;
+        j["source"] = r.source;
+        j["discovery_path"] = r.discovery_path;
+        j["timestamp"] = r.timestamp;
+        j["hash"] = r.hash;
         out.push_back(j);
-    }
+   }
 
-    std::ofstream ofs(outdir + "/scan_results.json");
+    std::ofstream ofs("./artifacts/" + outfile);
     ofs << out.dump(2);
     ofs.close();
     return 0;
