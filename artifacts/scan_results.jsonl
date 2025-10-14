@@ -1,0 +1,171 @@
+[
+  {
+    "cookies": [],
+    "discovery_path": [
+      "https://google.com"
+    ],
+    "hash": "sha256:05046f26c83e8c88b3ddab2eab63d0d16224ac1e564535fc75cdceee47a0938d",
+    "headers": [
+      [
+        "location",
+        "https://www.google.com/"
+      ],
+      [
+        "content-type",
+        "text/html; charset=UTF-8"
+      ],
+      [
+        "content-security-policy-report-only",
+        "object-src 'none';base-uri 'self';script-src 'nonce-UvlmUnM_rkE-gM5F7kc2uw' 'strict-dynamic' 'report-sample' 'unsafe-eval' 'unsafe-inline' https: http:;report-uri https://csp.withgoogle.com/csp/gws/other-hp"
+      ],
+      [
+        "date",
+        "Tue, 14 Oct 2025 21:36:49 GMT"
+      ],
+      [
+        "expires",
+        "Thu, 13 Nov 2025 21:36:49 GMT"
+      ],
+      [
+        "cache-control",
+        "public, max-age=2592000"
+      ],
+      [
+        "server",
+        "gws"
+      ],
+      [
+        "content-length",
+        "220"
+      ],
+      [
+        "x-xss-protection",
+        "0"
+      ],
+      [
+        "x-frame-options",
+        "SAMEORIGIN"
+      ],
+      [
+        "alt-svc",
+        "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+      ],
+      [
+        "date",
+        "Tue, 14 Oct 2025 21:36:50 GMT"
+      ],
+      [
+        "expires",
+        "-1"
+      ],
+      [
+        "cache-control",
+        "private, max-age=0"
+      ],
+      [
+        "content-type",
+        "text/html; charset=ISO-8859-1"
+      ],
+      [
+        "content-security-policy-report-only",
+        "object-src 'none';base-uri 'self';script-src 'nonce-oEN_qADjgtnay64z3gyXKw' 'strict-dynamic' 'report-sample' 'unsafe-eval' 'unsafe-inline' https: http:;report-uri https://csp.withgoogle.com/csp/gws/other-hp"
+      ],
+      [
+        "accept-ch",
+        "Sec-CH-Prefers-Color-Scheme"
+      ],
+      [
+        "p3p",
+        "CP=\"This is not a P3P policy! See g.co/p3phelp for more info.\""
+      ],
+      [
+        "content-encoding",
+        "gzip"
+      ],
+      [
+        "server",
+        "gws"
+      ],
+      [
+        "x-xss-protection",
+        "0"
+      ],
+      [
+        "x-frame-options",
+        "SAMEORIGIN"
+      ],
+      [
+        "set-cookie",
+        "AEC=AaJma5vU6298uWlf3VSfAgcC7FcE_CBZ-vo2yoqqd6hKxxwhmTnt7KrdwmQ; expires=Sun, 12-Apr-2026 21:36:50 GMT; path=/; domain=.google.com; Secure; HttpOnly; SameSite=lax"
+      ],
+      [
+        "set-cookie",
+        "NID=525=RKAfK9sGolzmCB1rzl646kAr9VZhxjExdm7aa9twWxVWfzTP-lPe_7jPTfZ1ijybsrvl0dyivywn4SJPhIXaWBt-eiGyGvCEI24VyYfvZ8D6GlJYPFsVVByyBusdE6VzUZiH6HYHS1fp9qcWYUIBwEws2ksIVmAwvdmIdRAVgms4lNrirQAF5YFNYK_fjl5GnJPvFwXQwPSIFqQrImonEKs; expires=Wed, 15-Apr-2026 21:36:50 GMT; path=/; domain=.google.com; HttpOnly"
+      ],
+      [
+        "alt-svc",
+        "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+      ]
+    ],
+    "method": "GET",
+    "params": [],
+    "source": "page",
+    "timestamp": "2025-10-14T21:36:50.613Z",
+    "url": "https://google.com"
+  },
+  {
+    "cookies": [],
+    "discovery_path": [
+      "https://google.com",
+      "https://google.com"
+    ],
+    "hash": "sha256:05046f26c83e8c88b3ddab2eab63d0d16224ac1e564535fc75cdceee47a0938d",
+    "headers": [],
+    "method": "get",
+    "params": [
+      [
+        "gbv",
+        "1"
+      ],
+      [
+        "iflsig",
+        "AOw8s4IAAAAAaO7QgtkrWQ5iIQJqS4j6KYbm3LVjzPZi"
+      ],
+      [
+        "btnI",
+        "I'm Feeling Lucky"
+      ],
+      [
+        "btnG",
+        "Google Search"
+      ],
+      [
+        "q",
+        ""
+      ],
+      [
+        "bih",
+        ""
+      ],
+      [
+        "biw",
+        ""
+      ],
+      [
+        "source",
+        "hp"
+      ],
+      [
+        "hl",
+        "en"
+      ],
+      [
+        "ie",
+        "ISO-8859-1"
+      ]
+    ],
+    "source": "form",
+    "timestamp": "2025-10-14T21:36:50.620Z",
+    "url": "https://google.com"
+  }
+]
