@@ -7,6 +7,7 @@
 #include <curl/curl.h>
 #include <stdexcept>
 #include <sstream>
+#include <algorithm>
 
 /// Callback invoked by libcurl to write the received body data.
 static size_t write_callback(char* ptr, size_t size, size_t nmemb, void* userdata) {
@@ -19,7 +20,7 @@ static size_t write_callback(char* ptr, size_t size, size_t nmemb, void* userdat
 static size_t header_callback(char* buffer, size_t size, size_t nitems, void* userdata) {
     size_t total = size * nitems;
     std::string_view hv(buffer, total);
-    auto* headers = static_cast<std::map<std::string, std::string>*>(userdata);
+    auto* headers = static_cast<std::vector<std::pair<std::string, std::string>>*>(userdata);
 
     auto pos = hv.find(':');
     if (pos != std::string_view::npos) {
@@ -34,9 +35,9 @@ static size_t header_callback(char* buffer, size_t size, size_t nitems, void* us
             val_end--;
         std::string value(hv.substr(val_start, val_end - val_start));
 
-        for (auto &c : name) c = static_cast<char>(std::tolower(c));
+        std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c){ return std::tolower(c); });
         
-        (*headers)[name] = value;
+        headers->emplace_back(std::move(name), std::move(value));
     }
     return total;
 }
@@ -60,7 +61,7 @@ bool HttpClient::perform(const HttpRequest& req, HttpResponse& resp) const {
     if (!curl) return false;
 
     std::string body;
-    std::map<std::string, std::string> resp_headers;
+    std::vector<std::pair<std::string, std::string>> resp_headers;
 
     // Basic configuration
     curl_easy_setopt(curl, CURLOPT_URL, req.url.c_str());
