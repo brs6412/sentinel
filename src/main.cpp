@@ -6,7 +6,7 @@
 
 int main(int argc, char** argv) {
     if (argc < 3) {
-        std::cerr << "Usage: sentinel scan --target URL --out artifacts/ [--openapi file.json]\n";
+        std::cerr << "Usage: sentinel scan --target URL --out filename [--openapi file.json]\n";
         return 2;
     }
 
@@ -14,14 +14,16 @@ int main(int argc, char** argv) {
     std::string outfile = "scan_results.jsonl";
     std::string openapi;
     for (int i = 1; i < argc; i++) {
-        std::string a = argv[1];
-        if (a == "--target" && i+1 < argc) {
+        std::string a = argv[i];
+        if (a == "--target" && i + 1 < argc) {
             target = argv[++i];
             continue;
-        } else if (a == "--out" && i + 1 < argc) {
+        } 
+        if (a == "--out" && i + 1 < argc) {
             outfile = argv[++i];
             continue;
-        } else if (a == "--openapi" && i + 1 < argc) {
+        } 
+        if (a == "--openapi" && i + 1 < argc) {
             openapi = argv[++i];
             continue;
         }
