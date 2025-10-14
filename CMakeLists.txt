@@ -28,3 +28,7 @@ target_link_libraries(sentinel core ${CURL_LIBRARIES})
 
 # Build the demo server app
 add_subdirectory(apps/demo_server)
+
+add_executable(reporter_stub tools/reporter_stub.cc)
+target_include_directories(reporter_stub PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
+set_target_properties(reporter_stub PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES)

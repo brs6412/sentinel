@@ -1,22 +1,27 @@
-.PHONY: lint-config lint-fixtures lint build-demo run-demo e2e-fixture e2e-local
+.PHONY: lint-config
 
 lint-config:
 	python -c 'import yaml; yaml.safe_load(open("config/policy.yaml")); yaml.safe_load(open("config/scanner.yaml")); print("OK")'
 
+.PHONY: lint-fixtures lint
 FIX_ENDPTS=apps/demo_server/fixtures/endpoints.small.jsonl
 FIX_FINDINGS=apps/demo_server/fixtures/findings.demo.jsonl
+
 lint-fixtures:
-	@grep -v '^[[:space:]]*$' $(FIX_ENDPTS) | while read -r l; do python -c 'import json,sys; json.loads(sys.argv[1])' "$$l" || exit 1; done
-	@grep -v '^[[:space:]]*$' $(FIX_FINDINGS) | while read -r l; do python -c 'import json,sys; json.loads(sys.argv[1])' "$$l" || exit 1; done
+	@while read -r l; do python -c 'import json,sys; json.loads(sys.argv[1])' "$$l" || exit 1; done < $(FIX_ENDPTS)
+	@while read -r l; do python -c 'import json,sys; json.loads(sys.argv[1])' "$$l" || exit 1; done < $(FIX_FINDINGS)
 	@echo OK
 
 lint: lint-config lint-fixtures
 
+.PHONY: build-demo run-demo
 build-demo:
-	cmake -S . -B build && cmake --build build -j
+\tcmake -S . -B build && cmake --build build -j
 
 run-demo: build-demo
-	./build/apps/demo_server/demo_server
+\t./build/apps/demo_server/demo_server
+
+.PHONY: e2e-fixture e2e-local
 
 FIX_DIR=apps/demo_server/fixtures
 REPORTS_DIR=reports
@@ -28,7 +33,7 @@ e2e-fixture: build-demo
 	@cp -f $(FIX_DIR)/findings.demo.jsonl $(ARTIFACTS_DIR)/findings.demo.jsonl
 	@./build/reporter_stub --policy config/policy.yaml --findings $(ARTIFACTS_DIR)/findings.demo.jsonl --endpoints $(ARTIFACTS_DIR)/endpoints.small.jsonl --out $(REPORTS_DIR)/sentinel_report.html || true
 	@echo "OK: $(REPORTS_DIR)/sentinel_report.html"
-	@echo "Note: reporter_stub exits non-zero if risk > block_score (expected for BLOCK)."
+	@echo "Note: reporter_stub exits non-zero if risk > block_score (that is expected for BLOCK)."
 
 e2e-local:
 	@echo "e2e-local scaffold: will orchestrate explorer/prober/reporter when they exist."
