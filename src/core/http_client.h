@@ -18,7 +18,7 @@ struct HttpRequest {
  */
 struct HttpResponse {
     long status = 0;
-    std::map<std::string, std::string> headers;
+    std::vector<std::pair<std::string, std::string>> headers;
     std::string body;
     std::string effective_url;
     std::string error;
