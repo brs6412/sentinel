@@ -7,22 +7,23 @@
 #include <nlohmann/json.hpp>
 
 /**
+ @brief Forward declaration for form struct passed by reference in parse_html
+ */
+struct Form;
+
+/**
  * @brief Represents results of crawling a single url
  */
 struct CrawlResult {
     std::string url;
-    long status;
-    std::set<std::string> links;
-
-    /**
-     * @brief Represents a single HTML form and its inputs
-     */
-    struct Form {
-        std::string action;
-        std::string method;
-        std::vector<std::pair<std::string, std::string>> inputs;
-    };
-    std::vector<Form> forms;
+    std::string method;
+    std::vector<std::pair<std::string, std::string>> params;
+    std::vector<std::pair<std::string, std::string>> headers;
+    std::vector<std::string> cookies;
+    std::string source;
+    std::vector<std::string> discovery_path;
+    std::string timestamp;
+    std::string hash;
 };
 
 /**
@@ -103,7 +104,7 @@ private:
         const std::string& base_url, 
         const std::string& body, 
         std::set<std::string>& out_links, 
-        std::vector<CrawlResult::Form>& out_forms
+        std::vector<Form>& out_forms
     ) const;
 
     /**
