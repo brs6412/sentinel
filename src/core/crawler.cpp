@@ -11,8 +11,46 @@
 #include <iostream>
 #include <algorithm>
 #include <curl/curl.h>
+#include <openssl/sha.h>
+#include <chrono>
+#include <iomanip>
+#include <vector>
+#include <string>
 
-using json = nlohmann::json;
+struct Form {
+    std::string action;
+    std::string method;
+    std::vector<std::pair<std::string, std::string>> inputs;
+};
+
+/// Get currrent timestamp in ISO8601 format.
+static std::string current_utc_timestamp() {
+    auto now = std::chrono::system_clock::now();
+    auto t = std::chrono::system_clock::to_time_t(now);
+    std::tm tm{};
+    gmtime_r(&t, &tm);
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+    std::ostringstream ss;
+    ss << std::put_time(&tm,"%Y-%m-%dT%H:%M:%S") << '.';
+    ss << std::setw(3) << std::setfill('0') << ms.count() << "Z";
+    return ss.str();
+}
+
+/// Hash string using sha256.
+static std::string sha256_hex(const std::string& data) {
+    unsigned char digest[SHA256_DIGEST_LENGTH];
+    SHA256_CTX ctx;
+    SHA256_Init(&ctx);
+    SHA256_Update(&ctx, reinterpret_cast<const unsigned char*>(data.data()), data.size());
+    SHA256_Final(digest, &ctx);
+    std::ostringstream ss;
+    ss << "sha256:";
+    ss << std::hex << std::setfill('0');
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+        ss << std::setw(2) << (int)digest[i];
+    }
+    return ss.str();
+}
 
 /// Convert string copy to lowercase using lambda on each character.
 static std::string to_lower(std::string s) {
@@ -155,13 +193,13 @@ std::string Crawler::normalize_url(const std::string& base, const std::string& h
 static void extract_forms(
     GumboNode* node, 
     const std::string& base, 
-    std::vector<CrawlResult::Form>& out_forms
+    std::vector<Form>& out_forms
 ) {
     if (node->type != GUMBO_NODE_ELEMENT) return;
     GumboAttribute* attr;
     if (node->v.element.tag == GUMBO_TAG_FORM) {
         // Extract action and method
-        CrawlResult::Form form;
+        Form form;
         attr = gumbo_get_attribute(&node->v.element.attributes, "action");
         form.action = attr ? std::string(attr->value) : "";
         attr = gumbo_get_attribute(&node->v.element.attributes, "method");
@@ -221,7 +259,7 @@ void Crawler::parse_html(
     const std::string& base_url, 
     const std::string& body, 
     std::set<std::string>& out_links,
-    std::vector<CrawlResult::Form>& out_forms
+    std::vector<Form>& out_forms
 ) const {
     GumboOutput* output = gumbo_parse(body.c_str());
     if (!output) return;
@@ -383,12 +421,35 @@ std::vector<CrawlResult> Crawler::run() {
 
         CrawlResult cr;
         cr.url = url;
-        cr.status = resp.status;
+        cr.method = "GET";
+        cr.headers = std::move(resp.headers);
+        cr.source = "page";
+        cr.discovery_path = {url};
+        cr.timestamp = current_utc_timestamp();
+        cr.hash = sha256_hex(url);
 
         if (resp.status >= 200 && resp.status < 400 && !resp.body.empty()) {
-            parse_html(url, resp.body, cr.links, cr.forms);
+            results.push_back(std::move(cr));
+
+            std::set<std::string> links;
+            std::vector<Form> forms;
+            parse_html(url, resp.body, links, forms);
+
+            for (const auto& f : forms) {
+                CrawlResult cr1;
+                std::string action_url = f.action.empty() ? url : f.action;
+                cr1.url = action_url;
+                cr1.method = f.method.empty() ? "POST" : f.method;
+                cr1.params = std::move(f.inputs);
+                cr1.source = "form";
+                cr1.discovery_path = {url, action_url};
+                cr1.timestamp = current_utc_timestamp();
+                cr1.hash = sha256_hex(action_url);
+                results.push_back(std::move(cr1));
+            }
+
             if (depth < opts_.max_depth) {
-                for (const auto& link : cr.links) {
+                for (const auto& link : links) {
                     // Add links found to queue if not visited and if same-origin
                     if (visited_.count(link)) {
                         continue;
@@ -410,7 +471,6 @@ std::vector<CrawlResult> Crawler::run() {
                 }
             }
         }
-        results.push_back(std::move(cr));
     }
     return results;
 }
