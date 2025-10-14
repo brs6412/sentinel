@@ -8,6 +8,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GUMBO REQUIRED gumbo)
 find_package(CURL REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 include_directories(
     ${CURL_INCLUDE_DIRS}
@@ -23,10 +24,15 @@ add_library(core
 target_link_libraries(core
     ${CURL_LIBRARIES}
     ${GUMBO_LIBRARIES}
+    OpenSSL::Crypto
 )
 
 add_executable(sentinel
     src/main.cpp
 )
-target_link_libraries(sentinel core ${CURL_LIBRARIES} ${GUMBO_LIBRARIES})
-
+target_link_libraries(sentinel 
+    core 
+    ${CURL_LIBRARIES} 
+    ${GUMBO_LIBRARIES}
+    OpenSSL::Crypto
+)
