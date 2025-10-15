@@ -198,7 +198,7 @@ bool ChainLogger::verify(const std::string& log_path) {
         }
     }
     
-    std::cout << "✓ Log verified: " << entries.size() << " entries, chain intact\n";
+    std::cout << "  Log verified: " << entries.size() << " entries, chain intact\n";
     return true;
 }
 
