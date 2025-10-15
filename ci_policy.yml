@@ -1,0 +1,36 @@
+# Risk Budget Policy Configuration
+# Used by: sentinel budget --policy ci-policy.yml artifacts/scan.log.jsonl
+
+# Score assigned to each finding category
+category_scores:
+  missing_security_header: 2
+  unsafe_cookie: 1
+  cors_misconfiguration: 3
+  reflected_xss: 5
+  csrf_vulnerability: 4
+  idor: 4
+  sql_injection: 10
+  command_injection: 10
+  path_traversal: 6
+  open_redirect: 3
+  insecure_deserialization: 8
+
+# Risk thresholds
+# warn_threshold: Pipeline continues but issues warning (exit code 1)
+# block_threshold: Pipeline fails and blocks deployment (exit code 2)
+warn_threshold: 3
+block_threshold: 5
+
+# Optional: Per-environment overrides
+environments:
+  development:
+    warn_threshold: 10
+    block_threshold: 20
+  
+  staging:
+    warn_threshold: 5
+    block_threshold: 10
+  
+  production:
+    warn_threshold: 2
+    block_threshold: 3
