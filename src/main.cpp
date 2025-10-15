@@ -196,7 +196,7 @@ int cmd_verify(int argc, char** argv) {
     if (logging::ChainLogger::verify(log_path)) {
         return 0;
     } else {
-        std::cerr << "❌ Verification failed\n";
+        std::cerr << "Verification failed\n";
         return 1;
     }
 }

@@ -149,11 +149,11 @@ void BudgetEvaluator::print_report(const BudgetResult& result) {
     std::cout << "Status: " << result.status_string() << "\n";
     
     if (result.exceeds_block) {
-        std::cout << "\n❌ BLOCKED: Risk score exceeds threshold\n";
+        std::cout << "\n   BLOCKED: Risk score exceeds threshold\n";
     } else if (result.exceeds_warn) {
-        std::cout << "\n⚠️  WARNING: Risk score approaching threshold\n";
+        std::cout << "\n   WARNING: Risk score approaching threshold\n";
     } else {
-        std::cout << "\n✓ PASS: Risk within acceptable limits\n";
+        std::cout << "\n   PASS: Risk within acceptable limits\n";
     }
     
     std::cout << "\n";

@@ -165,7 +165,7 @@ bool ChainLogger::verify(const std::string& log_path) {
     
     // First entry should have genesis prev_hash
     if (entries[0].prev_hash != "sha256:genesis") {
-        std::cerr << "❌ First entry doesn't have genesis prev_hash\n";
+        std::cerr << "   First entry doesn't have genesis prev_hash\n";
         std::cerr << "   Expected: sha256:genesis\n";
         std::cerr << "   Got: " << entries[0].prev_hash << "\n";
         return false;
@@ -179,7 +179,7 @@ bool ChainLogger::verify(const std::string& log_path) {
         std::string computed = compute_hash(entry);
         
         if (computed != entry.entry_hash) {
-            std::cerr << "❌ Hash mismatch at entry " << i << "\n";
+            std::cerr << "   Hash mismatch at entry " << i << "\n";
             std::cerr << "   Expected: " << entry.entry_hash << "\n";
             std::cerr << "   Computed: " << computed << "\n";
             std::cerr << "   Event: " << entry.event_type << "\n";
@@ -190,7 +190,7 @@ bool ChainLogger::verify(const std::string& log_path) {
         // Verify chain link (except first entry)
         if (i > 0) {
             if (entry.prev_hash != entries[i-1].entry_hash) {
-                std::cerr << "❌ Chain break at entry " << i << "\n";
+                std::cerr << "   Chain break at entry " << i << "\n";
                 std::cerr << "   prev_hash: " << entry.prev_hash << "\n";
                 std::cerr << "   previous entry_hash: " << entries[i-1].entry_hash << "\n";
                 return false;
