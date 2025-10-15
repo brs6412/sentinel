@@ -4,6 +4,7 @@
  */
 
 #include "artifacts.h"
+#include <iostream>
 #include <fstream>
 #include <sstream>
 #include <filesystem>
