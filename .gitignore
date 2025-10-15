@@ -1,1 +1,19 @@
-/build/
+# Build outputs
+build/
+*.o
+*.a
+*.so
+
+# Runtime artifacts
+artifacts/
+*.log
+*.jsonl
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.
