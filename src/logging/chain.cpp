@@ -67,7 +67,12 @@ std::string ChainLogger::get_timestamp() {
         now.time_since_epoch()) % 1000;
     
     std::tm tm;
-    gmtime_r(&time_t, &tm);
+    
+    #ifdef _WIN32
+        gmtime_s(&tm, &time_t);  // Windows secure version
+    #else
+        gmtime_r(&time_t, &tm);  // POSIX thread-safe version
+    #endif
     
     std::ostringstream oss;
     oss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%S");
