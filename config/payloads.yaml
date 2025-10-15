@@ -1,0 +1,10 @@
+missing_headers:
+  - name: "Check CSP/XFO/HSTS"
+    http_method: "GET"
+    path: "/no-headers"
+    payload: ""
+cookie_flags:
+  - name: "Check cookie flags"
+    http_method: "GET"
+    path: "/set-cookie"
+    payload: ""

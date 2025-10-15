@@ -1,0 +1,25 @@
+name: Fixture E2E Report
+on:
+  pull_request:
+  push:
+    branches: [ main, master ]
+jobs:
+  build-and-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y cmake build-essential python3 python3-yaml
+      - name: Build
+        run: cmake -S . -B build && cmake --build build -j
+      - name: E2E fixture
+        run: |
+          mkdir -p out/reports out/artifacts
+          cp -f apps/demo_server/fixtures/endpoints.small.jsonl out/artifacts/endpoints.small.jsonl
+          cp -f apps/demo_server/fixtures/findings.demo.jsonl out/artifacts/findings.demo.jsonl
+          ./build/reporter_stub --policy config/policy.yaml --findings out/artifacts/findings.demo.jsonl --endpoints out/artifacts/endpoints.small.jsonl --out out/reports/sentinel_report.html || true
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sentinel_report
+          path: out/reports/sentinel_report.html

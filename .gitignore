@@ -1,1 +1,7 @@
 /build/
+
+# generated artifacts
+/out/
+
+/out/
+.venv/

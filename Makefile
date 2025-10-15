@@ -1,4 +1,4 @@
-.PHONY: lint-config lint-fixtures lint build-demo run-demo e2e-fixture e2e-local
+.PHONY: lint-config lint-fixtures lint build-demo run-demo e2e-fixture e2e-local llm-fallback validate fixtures-validate https-up tf-score
 
 lint-config:
 	python -c 'import yaml; yaml.safe_load(open("config/policy.yaml")); yaml.safe_load(open("config/scanner.yaml")); print("OK")'
@@ -18,18 +18,36 @@ build-demo:
 run-demo: build-demo
 	./build/apps/demo_server/demo_server
 
-FIX_DIR=apps/demo_server/fixtures
-REPORTS_DIR=reports
-ARTIFACTS_DIR=artifacts
-
+REPORTS_DIR=out/reports
+ARTIFACTS_DIR=out/artifacts
 e2e-fixture: build-demo
 	@mkdir -p $(ARTIFACTS_DIR) $(REPORTS_DIR)
-	@cp -f $(FIX_DIR)/endpoints.small.jsonl $(ARTIFACTS_DIR)/endpoints.small.jsonl
-	@cp -f $(FIX_DIR)/findings.demo.jsonl $(ARTIFACTS_DIR)/findings.demo.jsonl
+	@cp -f $(FIX_ENDPTS)   $(ARTIFACTS_DIR)/endpoints.small.jsonl
+	@cp -f $(FIX_FINDINGS) $(ARTIFACTS_DIR)/findings.demo.jsonl
 	@./build/reporter_stub --policy config/policy.yaml --findings $(ARTIFACTS_DIR)/findings.demo.jsonl --endpoints $(ARTIFACTS_DIR)/endpoints.small.jsonl --out $(REPORTS_DIR)/sentinel_report.html || true
 	@echo "OK: $(REPORTS_DIR)/sentinel_report.html"
-	@echo "Note: reporter_stub exits non-zero if risk > block_score (expected for BLOCK)."
+
+llm-fallback: build-demo
+	./build/sentinel-llm --in config/payloads.yaml --out out/payloads/augmented.yaml --model llama3:instruct --max-new 30 --temperature 0.2 --seed 42 --manifest out/assets/assets.manifest.json
+	@echo "OK: out/payloads/augmented.yaml and out/assets/assets.manifest.json"
+
+validate: build-demo
+	./build/sentinel-validate --file $(FIX_ENDPTS) --type endpoints
+	./build/sentinel-validate --file $(FIX_FINDINGS) --type findings
+	@echo "validate OK"
+
+fixtures-validate: validate
+
+https-up:
+	./tools/gen-selfsigned.sh
+	docker compose up -d
+	@echo "Try: curl -isk https://localhost/set-cookie | grep -i '^set-cookie:'"
+
+tf-score:
+	python3 -m pip install -r tools/tf_safety_scorer/requirements.txt
+	python3 tools/tf_safety_scorer/safety_scorer.py --in out/payloads/augmented.yaml --out out/assets/llm_safety_scores.json
+	@echo "OK: out/assets/llm_safety_scores.json"
 
 e2e-local:
-	@echo "e2e-local scaffold: will orchestrate explorer/prober/reporter when they exist."
+	@echo "e2e-local scaffold: will orchestrate explorer/prober/reporter later."
 	@exit 0
