@@ -8,10 +8,11 @@
 - libcurl development headers and library installed  
 - gumbo-parser (HTML parsing)
 - nlohmann/json (JSON handling)
+- libssl development headers and library installed
 
 On Debian/Ubuntu:
 ```bash
-sudo apt install build-essential cmake libcurl4-openssl-dev libgumbo-dev nlohmann-json3-dev
+sudo apt install build-essential cmake libcurl4-openssl-dev libgumbo-dev nlohmann-json3-dev libssl-dev
 ```
 
 ### Build
