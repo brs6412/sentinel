@@ -1,0 +1,6 @@
+# Scanner/runtime defaults used by explorer/prober
+user_agent: "SentinelProbe/0.1 (+local-dev)"
+request_timeout_ms: 4000     # per request timeout
+max_depth: 2                 # crawl breadth/recursion guard
+respect_robots: true         # be a good citizen when hitting real targets
+rate_limit_rps: 2            # simple client-side throttle

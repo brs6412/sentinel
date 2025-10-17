@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.16)
+project(demo_server)
+add_executable(demo_server main.cpp)
+target_include_directories(demo_server PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
+set_target_properties(demo_server PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES)

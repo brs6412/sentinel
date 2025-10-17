@@ -5,9 +5,11 @@ build/
 *.so
 
 # Runtime artifacts
+/out/
 artifacts/
 *.log
 *.jsonl
+.venv/
 
 # IDE files
 .vscode/
@@ -16,4 +18,4 @@ artifacts/
 
 # OS files
 .DS_Store
-Thumbs.
+Thumbs.db
