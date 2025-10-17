@@ -1,0 +1,129 @@
+name: Sentinel Security Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up test environment
+      run: |
+        # Start your test application
+        docker-compose -f tests/fixtures/docker-compose.yml up -d
+        # Wait for services to be ready
+        sleep 10
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libcurl4-openssl-dev \
+          libssl-dev \
+          nlohmann-json3-dev \
+          libgumbo-dev
+    
+    - name: Build Sentinel
+      run: |
+        mkdir -p build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release
+        make -j$(nproc)
+    
+    - name: Run security scan
+      id: scan
+      run: |
+        ./build/sentinel scan \
+          --target http://localhost:8081 \
+          --out artifacts/
+      continue-on-error: true
+    
+    - name: Verify log integrity
+      run: |
+        ./build/sentinel verify artifacts/scan.log.jsonl
+    
+    - name: Evaluate risk budget
+      id: budget
+      run: |
+        ./build/sentinel budget \
+          --policy ci-policy.yml \
+          artifacts/scan.log.jsonl
+      continue-on-error: true
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: sentinel-scan-results
+        path: |
+          artifacts/
+        retention-days: 30
+    
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          
+          // Read scan results
+          let summary = '## 🔍 Sentinel Security Scan Results\n\n';
+          
+          try {
+            const logContent = fs.readFileSync('artifacts/scan.log.jsonl', 'utf8');
+            const entries = logContent.trim().split('\n')
+              .filter(line => line.length > 0)
+              .map(line => JSON.parse(line));
+            
+            const findings = entries.filter(e => e.event_type === 'finding_recorded');
+            
+            summary += `- **Total Findings**: ${findings.length}\n`;
+            summary += `- **Scan Status**: ${{ steps.budget.outcome }}\n\n`;
+            
+            if (findings.length > 0) {
+              summary += '### Findings by Category\n\n';
+              const categories = {};
+              findings.forEach(f => {
+                const cat = f.payload.category || 'unknown';
+                categories[cat] = (categories[cat] || 0) + 1;
+              });
+              
+              for (const [cat, count] of Object.entries(categories)) {
+                summary += `- **${cat}**: ${count}\n`;
+              }
+            }
+            
+            summary += '\n📦 Full scan artifacts available in workflow run.';
+          } catch (err) {
+            summary += '⚠️ Could not parse scan results\n';
+            summary += `Error: ${err.message}`;
+          }
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: summary
+          });
+    
+    - name: Check budget status
+      if: steps.budget.outcome == 'failure'
+      run: |
+        echo "::error::Security scan failed risk budget check"
+        exit 1
+    
+    - name: Cleanup test environment
+      if: always()
+      run: |
+        docker-compose -f tests/fixtures/docker-compose.yml down

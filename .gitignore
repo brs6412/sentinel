@@ -1,7 +1,21 @@
-/build/
+# Build outputs
+build/
+*.o
+*.a
+*.so
 
-# generated artifacts
+# Runtime artifacts
 /out/
-
-/out/
+artifacts/
+*.log
+*.jsonl
 .venv/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db

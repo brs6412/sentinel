@@ -4,8 +4,16 @@
 
 ### Prerequisites
 - CMake ≥ 3.18  
-- C++17 compiler (GCC, Clang, or MSVC)  
+- C++17 compiler
 - libcurl development headers and library installed  
+- gumbo-parser (HTML parsing)
+- nlohmann/json (JSON handling)
+- libssl development headers and library installed
+
+On Debian/Ubuntu:
+```bash
+sudo apt install build-essential cmake libcurl4-openssl-dev libgumbo-dev nlohmann-json3-dev libssl-dev
+```
 
 ### Build
 ```bash
@@ -15,5 +23,5 @@ cmake --build build
 
 ### Run
 ```bash
-./build/sentinel
+./build/sentinel --target <target_url> --out <output_dir> [--openapi file.json]
 ```

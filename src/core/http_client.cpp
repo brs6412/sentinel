@@ -7,34 +7,20 @@
 #include <curl/curl.h>
 #include <stdexcept>
 #include <sstream>
+#include <algorithm>
 
-/**
- * @brief Callback invoked by libcurl to write received body data.
- *
- * @param  ptr Pointer to received data buffer.
- * @param  size Size of data elements.
- * @param  nmemb Num elements.
- * @param  userdata Pointer to std::string used to accumulate response body.
- * @return Num bytes written.
- */
+/// Callback invoked by libcurl to write the received body data.
 static size_t write_callback(char* ptr, size_t size, size_t nmemb, void* userdata) {
     auto* s = static_cast<std::string*>(userdata);
     s->append(ptr, size * nmemb);
     return size * nmemb;
 }
 
-/**
- * @brief  Callback invoked once per header line to parse header into map.
- * @param  buffer  Raw header line.
- * @param  size Size of data elements.
- * @param  nitems  Num elements.
- * @param  userdata Pointer to to header mappings. 
- * @return Num bytes processed.
- */
+/// Callback invoked once per header line to parse header into map.
 static size_t header_callback(char* buffer, size_t size, size_t nitems, void* userdata) {
     size_t total = size * nitems;
     std::string_view hv(buffer, total);
-    auto* headers = static_cast<std::map<std::string, std::string>*>(userdata);
+    auto* headers = static_cast<std::vector<std::pair<std::string, std::string>>*>(userdata);
 
     auto pos = hv.find(':');
     if (pos != std::string_view::npos) {
@@ -42,25 +28,21 @@ static size_t header_callback(char* buffer, size_t size, size_t nitems, void* us
 
         size_t val_start = pos + 1;
         while (val_start < hv.size() && (hv[val_start] == ' ' || hv[val_start] == '\t'))
-            ++val_start;
+            val_start++;
 
         size_t val_end = hv.size();
         while (val_end > val_start && (hv[val_end - 1] == '\r' || hv[val_end - 1] == '\n'))
-            --val_end; 
+            val_end--;
         std::string value(hv.substr(val_start, val_end - val_start));
 
-        for (auto &c : name) c = static_cast<char>(std::tolower(c));
+        std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c){ return std::tolower(c); });
         
-        (*headers)[name] = value;
+        headers->emplace_back(std::move(name), std::move(value));
     }
     return total;
 }
 
-/**
- * @brief  Initialize global libcurl state.
- * @param  opts  Configuration options for HTTP client.
- * @throw  std::runtime_error if curl_global_init fails.
- */
+/// Initialize global libcurl state.
 HttpClient::HttpClient(const Options& opts) : opts_(opts) {
     CURLcode c = curl_global_init(CURL_GLOBAL_DEFAULT);
     if (c != CURLE_OK) {
@@ -68,25 +50,18 @@ HttpClient::HttpClient(const Options& opts) : opts_(opts) {
     }
 }
 
-/**
- * @brief  Clean up global libcurl state.
- */
+/// Clean up global libcurl state.
 HttpClient::~HttpClient() {
     curl_global_cleanup();
 }
 
-/**
- * @brief  Execute an HTTP request and populate a response object.
- * @param  req  Input request (method, URL, headers, body).
- * @param  resp Output response (status, body, headers, timing).
- * @return True if request completed successfully, false otherwise
- */
+/// Execute an HTTP request and populate a response object.
 bool HttpClient::perform(const HttpRequest& req, HttpResponse& resp) const {
     CURL* curl = curl_easy_init();
     if (!curl) return false;
 
     std::string body;
-    std::map<std::string, std::string> resp_headers;
+    std::vector<std::pair<std::string, std::string>> resp_headers;
 
     // Basic configuration
     curl_easy_setopt(curl, CURLOPT_URL, req.url.c_str());
