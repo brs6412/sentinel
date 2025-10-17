@@ -24,6 +24,7 @@ add_library(core
     src/core/crawler.cpp
 )
 target_include_directories(core PUBLIC
+    $<TARGET_PROPERTY:nlohmann_json::nlohmann_json,INTERFACE_INCLUDE_DIRECTORIES>
     src/core
     ${GUMBO_INCLUDE_DIR}
 )
@@ -68,7 +69,7 @@ add_executable(sentinel-llm src/sentinel_llm.cpp)
 target_link_libraries(sentinel-llm PRIVATE core logging artifacts budget)
 
 # Reporter stub (adjust path if your file lives under src/)
-add_executable(reporter_stub tools/reporter_stub.cc)
+add_executable(reporter_stub src/reporter_stub.cpp)
 target_link_libraries(reporter_stub PRIVATE nlohmann_json::nlohmann_json)
 
 add_executable(sentinel-validate tools/sentinel_validate.cpp)
