@@ -29,6 +29,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include "llm/ollama_client.h"
 
 namespace tinysha256 {
 // ---- Minimal SHA-256 implementation (single-file, no external deps) ----
@@ -257,6 +258,51 @@ static std::optional<Options> parse_args(int argc, char** argv) {
   return opt;
 }
 
+// Try to use Ollama to generate augmented content; returns true if successful
+static bool try_ollama_generate(const Options& opts) {
+  const char* ollama_host = std::getenv("OLLAMA_HOST");
+  std::string host = (ollama_host && std::strlen(ollama_host) > 0)
+                     ? std::string(ollama_host)
+                     : "http://127.0.0.1:11434";
+
+  if (!ollama_host || std::strlen(ollama_host) == 0) {
+    std::cerr << "[sentinel-llm] OLLAMA_HOST not set, using default: " << host << "\n";
+  }
+
+  try {
+    llm::OllamaClient client(host);
+
+    if (!client.IsHealthy()) {
+      std::cerr << "[sentinel-llm] Ollama server not reachable at " << host
+                << ", falling back to file copy\n";
+      return false;
+    }
+
+    // Read input file as prompt
+    std::ifstream in_file(opts.in_path);
+    if (!in_file.good()) return false;
+    std::string prompt((std::istreambuf_iterator<char>(in_file)),
+                       std::istreambuf_iterator<char>());
+
+    // Generate using Ollama
+    std::string response = client.Generate(opts.model, prompt);
+
+    // Write response to output file
+    std::filesystem::create_directories(std::filesystem::path(opts.out_path).parent_path());
+    std::ofstream out_file(opts.out_path);
+    if (!out_file.good()) return false;
+    out_file << response;
+
+    std::cerr << "[sentinel-llm] Generated using Ollama (model=" << opts.model
+              << ", host=" << host << ")\n";
+    return true;
+  } catch (const std::exception& e) {
+    std::cerr << "[sentinel-llm] Ollama error: " << e.what()
+              << ", falling back to file copy\n";
+    return false;
+  }
+}
+
 // ---- Main program -----------------------------------------------------------
 
 int main(int argc, char** argv) {
@@ -273,16 +319,19 @@ int main(int argc, char** argv) {
     return 2;
   }
 
-  // 3) Stub “LLM step”: copy baseline → augmented, and log parameters
-  std::cerr << "[sentinel-llm] Ollama not detected; copying baseline → augmented "
-               "(deterministic fallback). "
-            << "model=" << opts->model
-            << " temperature=" << opts->temperature
-            << " seed=" << opts->seed << "\n";
+  // 3) Try Ollama first, fall back to file copy if unavailable
+  if (!try_ollama_generate(*opts)) {
+    // Fallback: stub "LLM step": copy baseline → augmented, and log parameters
+    std::cerr << "[sentinel-llm] Ollama not available; copying baseline → augmented "
+                 "(deterministic fallback). "
+              << "model=" << opts->model
+              << " temperature=" << opts->temperature
+              << " seed=" << opts->seed << "\n";
 
-  if (!copy_file(opts->in_path, opts->out_path)) {
-    std::cerr << "Error: failed to write " << opts->out_path << "\n";
-    return 2;
+    if (!copy_file(opts->in_path, opts->out_path)) {
+      std::cerr << "Error: failed to write " << opts->out_path << "\n";
+      return 2;
+    }
   }
 
   // 4) Emit manifest with SHA-256 of the augmented file (for integrity checks)

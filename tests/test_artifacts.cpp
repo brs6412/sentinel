@@ -1,6 +1,9 @@
 /**
  * @file test_artifacts.cpp
- * @brief Unit tests for artifact generators
+ * @brief Unit tests for artifact generation functions
+ * 
+ * Tests the ability to generate shell scripts, Catch2 test files, and
+ * manifest files from security findings. Also tests string escaping.
  */
 
 #include <catch2/catch.hpp>
@@ -11,6 +14,10 @@
 using namespace artifacts;
 namespace fs = std::filesystem;
 
+/**
+ * Test generating a shell script with repro functions
+ * @test_artifacts.cpp (21-71)
+ */
 TEST_CASE("ArtifactGenerator generates repro script", "[artifacts]") {
     std::vector<Finding> findings;
     
@@ -63,6 +70,10 @@ TEST_CASE("ArtifactGenerator generates repro script", "[artifacts]") {
     }
 }
 
+/**
+ * Test generating a Catch2 test file
+ * @test_artifacts.cpp (77-114)
+ */
 TEST_CASE("ArtifactGenerator generates Catch2 tests", "[artifacts]") {
     std::vector<Finding> findings;
     
@@ -102,6 +113,10 @@ TEST_CASE("ArtifactGenerator generates Catch2 tests", "[artifacts]") {
     }
 }
 
+/**
+ * Test generating a manifest file with SHA-256 hashes
+ * @test_artifacts.cpp (120-161)
+ */
 TEST_CASE("ArtifactGenerator generates manifest", "[artifacts]") {
     std::string test_dir = "test_artifacts_dir";
     fs::create_directories(test_dir);
@@ -145,6 +160,10 @@ TEST_CASE("ArtifactGenerator generates manifest", "[artifacts]") {
     fs::remove_all(test_dir);
 }
 
+/**
+ * Test that URLs with special characters are properly escaped in shell scripts
+ * @test_artifacts.cpp (167-214)
+ */
 TEST_CASE("Shell escaping works correctly", "[artifacts]") {
     SECTION("Simple strings") {
         // This is a private method, but we can test the public interface
@@ -194,6 +213,10 @@ TEST_CASE("Shell escaping works correctly", "[artifacts]") {
     }
 }
 
+/**
+ * Test that multiple findings create multiple repro functions
+ * @test_artifacts.cpp (220-248)
+ */
 TEST_CASE("Multiple findings generate multiple functions", "[artifacts]") {
     std::vector<Finding> findings;
     
@@ -224,6 +247,10 @@ TEST_CASE("Multiple findings generate multiple functions", "[artifacts]") {
     fs::remove(script);
 }
 
+/**
+ * Test that generated Catch2 tests include finding evidence
+ * @test_artifacts.cpp (254-277)
+ */
 TEST_CASE("Catch2 tests include evidence", "[artifacts]") {
     Finding f;
     f.id = "header_001";
@@ -249,6 +276,10 @@ TEST_CASE("Catch2 tests include evidence", "[artifacts]") {
     fs::remove(test_path);
 }
 
+/**
+ * Test that empty finding lists still generate valid (but minimal) artifacts
+ * @test_artifacts.cpp (283-315)
+ */
 TEST_CASE("Empty findings generate valid but empty artifacts", "[artifacts]") {
     std::vector<Finding> empty_findings;
     

@@ -1,6 +1,10 @@
 /**
  * @file test_budget.cpp
- * @brief Unit tests for risk budget and policy evaluation
+ * @brief Unit tests for risk budget evaluation
+ * 
+ * Tests policy loading, score calculation, threshold checking, and
+ * evaluation from log files. Verifies that findings are scored correctly
+ * and thresholds trigger the right status.
  */
 
 #include <catch2/catch.hpp>
@@ -11,6 +15,10 @@
 using namespace budget;
 namespace fs = std::filesystem;
 
+/**
+ * Test that the default policy has reasonable scores and thresholds
+ * @test_budget.cpp (22-41)
+ */
 TEST_CASE("Default policy has expected values", "[budget]") {
     auto policy = Policy::get_default();
     
@@ -32,6 +40,10 @@ TEST_CASE("Default policy has expected values", "[budget]") {
     }
 }
 
+/**
+ * Test loading a policy from a JSON file
+ * @test_budget.cpp (47-75)
+ */
 TEST_CASE("Policy loads from JSON file", "[budget]") {
     std::string policy_file = "test_policy.json";
     
@@ -62,6 +74,10 @@ TEST_CASE("Policy loads from JSON file", "[budget]") {
     fs::remove(policy_file);
 }
 
+/**
+ * Test that loading a non-existent file returns default policy
+ * @test_budget.cpp (81-88)
+ */
 TEST_CASE("Policy handles missing file gracefully", "[budget]") {
     auto policy = Policy::load("nonexistent_file.json");
     
@@ -71,6 +87,10 @@ TEST_CASE("Policy handles missing file gracefully", "[budget]") {
     REQUIRE(policy.block_threshold == 5);
 }
 
+/**
+ * Test score calculation for various finding combinations
+ * @test_budget.cpp (94-195)
+ */
 TEST_CASE("BudgetEvaluator calculates scores correctly", "[budget]") {
     Policy policy = Policy::get_default();
     BudgetEvaluator evaluator(policy);
@@ -174,6 +194,10 @@ TEST_CASE("BudgetEvaluator calculates scores correctly", "[budget]") {
     }
 }
 
+/**
+ * Test evaluating findings from a JSONL log file
+ * @test_budget.cpp (201-275)
+ */
 TEST_CASE("BudgetEvaluator evaluates from log file", "[budget]") {
     std::string log_file = "test_budget.jsonl";
     
@@ -250,6 +274,10 @@ TEST_CASE("BudgetEvaluator evaluates from log file", "[budget]") {
     fs::remove(log_file);
 }
 
+/**
+ * Test that status methods return correct values for each state
+ * @test_budget.cpp (281-313)
+ */
 TEST_CASE("BudgetResult status methods work correctly", "[budget]") {
     BudgetResult result;
     
@@ -284,6 +312,10 @@ TEST_CASE("BudgetResult status methods work correctly", "[budget]") {
     }
 }
 
+/**
+ * Test evaluation with a custom policy that has different thresholds
+ * @test_budget.cpp (319-365)
+ */
 TEST_CASE("Custom policy with different thresholds", "[budget]") {
     std::string policy_file = "test_custom_policy.json";
     
@@ -332,6 +364,10 @@ TEST_CASE("Custom policy with different thresholds", "[budget]") {
     fs::remove(policy_file);
 }
 
+/**
+ * Test that malformed log entries are skipped gracefully
+ * @test_budget.cpp (371-390)
+ */
 TEST_CASE("BudgetEvaluator handles malformed log entries", "[budget]") {
     std::string log_file = "test_malformed.jsonl";
     

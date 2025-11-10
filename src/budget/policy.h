@@ -7,7 +7,17 @@
 namespace budget {
 
 /**
- * @brief Risk policy configuration
+ * @file policy.h
+ * @brief Risk budget evaluation for security findings
+ * 
+ * Assigns scores to findings based on their category and checks if the
+ * total risk exceeds warning or blocking thresholds. Used to gate CI/CD
+ * pipelines based on scan results.
+ */
+
+/**
+ * Risk scoring policy configuration
+ * @policy.h (12-25)
  */
 struct Policy {
     // Score per finding category
@@ -17,15 +27,25 @@ struct Policy {
     int warn_threshold;
     int block_threshold;
     
-    // Load from YAML/JSON file
+    /**
+     * Load policy from a YAML or JSON file
+     * @policy.h (21)
+     * @param policy_path Path to policy file
+     * @return Loaded policy
+     */
     static Policy load(const std::string& policy_path);
     
-    // Get default policy
+    /**
+     * Get a default policy with reasonable scores
+     * @policy.h (24)
+     * @return Default policy
+     */
     static Policy get_default();
 };
 
 /**
- * @brief Result of budget evaluation
+ * Result of evaluating findings against a risk budget
+ * @policy.h (30-66)
  */
 struct BudgetResult {
     int total_score;
@@ -66,33 +86,38 @@ struct BudgetResult {
 };
 
 /**
- * @brief Evaluates risk budget from scan findings
+ * Evaluates security findings against a risk budget
+ * @policy.h (71-101)
  */
 class BudgetEvaluator {
 public:
     /**
-     * @brief Construct evaluator with policy
-     * @param policy Risk policy to apply
+     * Create an evaluator with a specific policy
+     * @policy.h (77)
+     * @param policy Risk policy to use for scoring
      */
     explicit BudgetEvaluator(const Policy& policy);
     
     /**
-     * @brief Evaluate findings from a log file
-     * @param log_path Path to scan.log.jsonl
-     * @return Budget evaluation result
+     * Evaluate findings from a log file
+     * @policy.h (84)
+     * @param log_path Path to scan.log.jsonl file
+     * @return Evaluation result with scores and status
      */
     BudgetResult evaluate(const std::string& log_path) const;
     
     /**
-     * @brief Evaluate findings from parsed entries
-     * @param findings Vector of finding objects
-     * @return Budget evaluation result
+     * Evaluate findings from already-parsed JSON objects
+     * @policy.h (91)
+     * @param findings List of finding JSON objects
+     * @return Evaluation result with scores and status
      */
     BudgetResult evaluate_findings(const std::vector<nlohmann::json>& findings) const;
     
     /**
-     * @brief Print budget report to stdout
-     * @param result Budget result to report
+     * Print a human-readable budget report
+     * @policy.h (97)
+     * @param result Result to print
      */
     static void print_report(const BudgetResult& result);
 

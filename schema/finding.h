@@ -3,7 +3,16 @@
 #include <nlohmann/json.hpp>
 
 /**
- * @brief Represents a finding that needs reproduction artifacts
+ * @file finding.h
+ * @brief Data structure representing a security finding
+ * 
+ * Contains all the information needed to reproduce and understand a security
+ * issue discovered during scanning.
+ */
+
+/**
+ * Represents a security finding that needs reproduction artifacts
+ * @finding.h (8-19)
  */
 struct Finding {
     std::string id;

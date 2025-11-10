@@ -5,25 +5,38 @@
 #include <schema/finding.h>
 
 /**
- @brief Vulnerability Engine Class
+ * @file vuln_engine.h
+ * @brief Analyzes crawled pages and generates security findings
+ * 
+ * Checks for common security issues like missing headers, unsafe cookies,
+ * CORS misconfigurations, XSS, CSRF, and IDOR vulnerabilities.
+ */
+
+/**
+ * Analyzes crawled pages for security vulnerabilities
+ * @vuln_engine.h (10-75)
  */
 class VulnEngine {
 public:
     /**
-     * @brief Constructs a VulnEngine object
-     * @param confidence_threshold Threshold for vuln findings
+     * Create a vulnerability engine with a confidence threshold
+     * @vuln_engine.h (16)
+     * @param confidence_threshold Minimum confidence to report a finding (0.0-1.0)
      */
     VulnEngine(double confidence_threshold = 0.7);
 
     /**
-     * @brief Process a list of crawled results and generate findings
-     * @param crawl_results Findings from Crawler
+     * Analyze crawled pages and generate security findings
+     * @vuln_engine.h (22)
+     * @param crawl_results Pages and endpoints discovered by the crawler
+     * @return List of security findings
      */
     std::vector<Finding> analyze(const std::vector<CrawlResult>& crawl_results);
 
     /**
-     * @brief Set CI risk budget threshold
-     * @param max_risk Maximum acceptable risk
+     * Set the maximum acceptable risk score for CI/CD gating
+     * @vuln_engine.h (28)
+     * @param max_risk Maximum risk score before blocking
      */
     void setRiskBudget(int max_risk);
 
@@ -32,44 +45,50 @@ private:
     int riskBudget_;
 
     /**
-     * @brief Check for missing or misconfigured security headers
-     * @param result CrawlResult to evaluate
-     * @param findings List of findings to populate 
+     * Check for missing or misconfigured security headers
+     * @vuln_engine.h (39)
+     * @param result Page to check
+     * @param findings List to add findings to
      */
     void checkSecurityHeaders(const CrawlResult& result, std::vector<Finding>& findings);
 
     /**
-     * @brief Check for unsafe cookies 
-     * @param result CrawlResult to evaluate
-     * @param findings List of findings to populate 
+     * Check for unsafe cookie settings
+     * @vuln_engine.h (46)
+     * @param result Page to check
+     * @param findings List to add findings to
      */
     void checkCookies(const CrawlResult& result, std::vector<Finding>& findings);
 
     /**
-     * @brief Check for misconfigured CORS headers 
-     * @param result CrawlResult to evaluate
-     * @param findings List of findings to populate 
+     * Check for misconfigured CORS headers
+     * @vuln_engine.h (53)
+     * @param result Page to check
+     * @param findings List to add findings to
      */
     void checkCORS(const CrawlResult& result, std::vector<Finding>& findings);
 
     /**
-     * @brief Check for reflected XSS vulnerabilities
-     * @param result CrawlResult to evaluate
-     * @param findings List of findings to populate 
+     * Check for reflected XSS vulnerabilities
+     * @vuln_engine.h (60)
+     * @param result Page to check
+     * @param findings List to add findings to
      */
     void checkReflectedXSS(const CrawlResult& result, std::vector<Finding>& findings);
 
-     /**
-     * @brief Check for missing CSRF protection on POST endpoints 
-     * @param result CrawlResult to evaluate
-     * @param findings List of findings to populate 
+    /**
+     * Check for missing CSRF protection on POST endpoints
+     * @vuln_engine.h (67)
+     * @param result Page to check
+     * @param findings List to add findings to
      */
     void checkCSRF(const CrawlResult& result, std::vector<Finding>& findings);
 
-     /**
-     * @brief Check for IDORs 
-     * @param result CrawlResult to evaluate
-     * @param findings List of findings to populate 
+    /**
+     * Check for insecure direct object references (IDOR)
+     * @vuln_engine.h (74)
+     * @param result Page to check
+     * @param findings List to add findings to
      */
     void checkIDOR(const CrawlResult& result, std::vector<Finding>& findings);
 };
