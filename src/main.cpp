@@ -28,9 +28,15 @@ int generate_findings(std::string run_id, std::vector<CrawlResult>& results) {
        
     std::cout << "Generated " << findings.size() << " findings\n";
 
-    // Write results to JSON
+    // Write results to JSON and create mapping of aggregated URLs to findings
+    std::map<std::string, std::vector<std::pair<std::string, nlohmann::json>>> grouped;
     nlohmann::json out = nlohmann::json::array();
     for (auto &f : findings) {
+        const std::string& url = f.url;
+        const std::string& category = f.category;
+        const nlohmann::json& evidence = f.evidence;
+        grouped[url].push_back({category, evidence});
+
         nlohmann::json j;
         j["id"] = f.id;
         j["url"] = f.url;
@@ -66,6 +72,15 @@ int generate_findings(std::string run_id, std::vector<CrawlResult>& results) {
     if (artifacts::ArtifactGenerator::generate_catch2_tests(
         findings, run_id, "./artifacts/repro_" + run_id + ".cpp")) {
         std::cout << "  ✓ repro_" << run_id << ".cpp\n";
+    }
+
+    std::cout << "Results:\n";
+    for (const auto& [url, vec] : grouped) {
+        std::cout << url << ":\n";
+        for (const auto& [category, evidence] : vec) {
+            std::cout << " " << category << ": \n";
+            std::cout << " "  << evidence.dump(2) << "\n";
+        }
     }
     return 0;
 }
