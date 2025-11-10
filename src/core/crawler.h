@@ -26,7 +26,7 @@ public:
 
         /// Default constructor
         Options()
-            : max_depth(2),
+            : max_depth(5),
               respect_robots(true)
         {}
     };
