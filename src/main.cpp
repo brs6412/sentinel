@@ -2,7 +2,9 @@
 #include "core/crawler.h"
 #include "logging/chain.h"
 #include "artifacts/artifacts.h"
+#include "artifacts/vuln_engine.h"
 #include "budget/policy.h"
+#include <schema/finding.h>
 #include <iostream>
 #include <filesystem>
 #include <fstream>
@@ -20,41 +22,37 @@ std::string generate_run_id() {
 
 int generate_findings(std::string run_id, std::vector<CrawlResult>& results) {
     logging::ChainLogger logger("./logs/scan.log.jsonl", run_id);
-    std::vector<artifacts::Finding> findings;
-    
-    for (auto& r : results) {
-        // Simple oracles (Person A's work would provide these)
-        // For now, we'll create dummy findings to demonstrate Person B features
-    
-        // Check for missing security headers (dummy check)
-        artifacts::Finding f;
-        f.id = "finding_" + std::to_string(findings.size() + 1);
-        f.url = r.url;
-        f.category = "missing_security_header";
-        f.method = "GET";
-        f.headers["Accept"] = "text/html";
-        f.evidence["header_checked"] = "X-Frame-Options";
-        f.evidence["observed_value"] = nullptr;
-        f.severity = "medium";
-        f.confidence = 0.95;
-        f.remediation_id = "headers";
-        
-        findings.push_back(f);
-        
-        // Log finding
-        nlohmann::json finding_json;
-        finding_json["id"] = f.id;
-        finding_json["url"] = f.url;
-        finding_json["category"] = f.category;
-        finding_json["severity"] = f.severity;
-        finding_json["confidence"] = f.confidence;
-        finding_json["evidence"] = f.evidence;
-        
-        logger.append("finding_recorded", finding_json);
-    }
-    
+
+    VulnEngine vulnEngine;
+    std::vector<Finding> findings = vulnEngine.analyze(results);
+       
     std::cout << "Generated " << findings.size() << " findings\n";
-    
+
+    // Write results to JSON
+    nlohmann::json out = nlohmann::json::array();
+    for (auto &f : findings) {
+        nlohmann::json j;
+        j["id"] = f.id;
+        j["url"] = f.url;
+        j["category"] = f.category;
+        j["method"] = f.method;
+        j["headers"] = nlohmann::json::array();
+        for (const auto& [name,value] : f.headers) {
+            j["headers"].push_back({name, value});
+        }
+        j["body"] = f.body;
+        j["evidence"] = f.evidence;
+        j["severity"] = f.severity;
+        j["confidence"] = f.confidence;
+        j["remediation_id"] = f.remediation_id;
+        out.push_back(j);
+    }
+
+    std::ofstream ofs("./artifacts/vuln_findings.jsonl");
+    ofs << out.dump(2);
+    ofs.close();
+
+   
     // Generate artifacts
     std::cout << "Generating reproduction artifacts...\n";
     
@@ -141,14 +139,14 @@ int run_scan(int argc, char** argv) {
         j["timestamp"] = r.timestamp;
         j["hash"] = r.hash;
         out.push_back(j);
-   }
+    }
 
     std::ofstream ofs("./artifacts/" + outfile);
     ofs << out.dump(2);
     ofs.close();
 
-    // std::cout << "Generating findings...\n";
-    // generate_findings(run_id, results); 
+    std::cout << "Generating findings...\n";
+    generate_findings(run_id, results); 
     
     return 0;
 }
@@ -196,7 +194,6 @@ int cmd_budget(int argc, char** argv) {
         policy = budget::Policy::load(policy_path);
     } else {
         std::cout << "Using default policy\n";
-        policy = budget::Policy::get_default();
     }
     
     // Evaluate budget

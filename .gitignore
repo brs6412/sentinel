@@ -6,7 +6,7 @@ build/
 
 # Runtime artifacts
 /out/
-artifacts/
+/artifacts/
 *.log
 *.jsonl
 .venv/

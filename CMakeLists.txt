@@ -19,6 +19,9 @@ if(NOT GUMBO_LIBRARY OR NOT GUMBO_INCLUDE_DIR)
 endif()
 
 # -------------------- Libraries -----------------------
+add_library(schema INTERFACE)
+target_include_directories(schema INTERFACE ${CMAKE_SOURCE_DIR})
+
 add_library(core
     src/core/http_client.cpp
     src/core/crawler.cpp
@@ -32,6 +35,7 @@ target_link_libraries(core PUBLIC
     CURL::libcurl
     ${GUMBO_LIBRARY}
     OpenSSL::Crypto
+    schema
 )
 
 add_library(logging
@@ -46,12 +50,14 @@ target_link_libraries(logging PUBLIC
 
 add_library(artifacts
     src/artifacts/artifacts.cpp
+    src/artifacts/vuln_engine.cpp
 )
 target_include_directories(artifacts PUBLIC src/artifacts)
 target_link_libraries(artifacts PUBLIC
     OpenSSL::SSL
     OpenSSL::Crypto
     nlohmann_json::nlohmann_json
+    schema
 )
 
 add_library(budget

@@ -1,5 +1,6 @@
 #pragma once
 #include "http_client.h"
+#include <schema/crawl_result.h>
 #include <string>
 #include <set>
 #include <vector>
@@ -10,21 +11,6 @@
  @brief Forward declaration for form struct passed by reference in parse_html
  */
 struct Form;
-
-/**
- * @brief Represents results of crawling a single url
- */
-struct CrawlResult {
-    std::string url;
-    std::string method;
-    std::vector<std::pair<std::string, std::string>> params;
-    std::vector<std::pair<std::string, std::string>> headers;
-    std::vector<std::string> cookies;
-    std::string source;
-    std::vector<std::string> discovery_path;
-    std::string timestamp;
-    std::string hash;
-};
 
 /**
  * @brief Crawls URLs and extracts links and forms
@@ -40,7 +26,7 @@ public:
 
         /// Default constructor
         Options()
-            : max_depth(2),
+            : max_depth(5),
               respect_robots(true)
         {}
     };

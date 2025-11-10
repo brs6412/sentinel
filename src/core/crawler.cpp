@@ -138,55 +138,17 @@ std::string Crawler::normalize_url(const std::string& base, const std::string& h
         return (pos != std::string::npos) ? href.substr(0, pos) : href;
     }
 
-    // Init URL handles
-    CURLU* base_h = curl_url();
-    CURLU* resolved_h = curl_url();
-    if (!base_h || !resolved_h) {
-        if (base_h) curl_url_cleanup(base_h);
-        if (resolved_h) curl_url_cleanup(resolved_h);
-        return {};
+    if (href[0] == '/') {
+        std::string base_fixed = base;
+        if (base_fixed.back() == '/')
+            base_fixed.pop_back();
+        return base_fixed + href;
     }
 
-    // Parse base URL
-    if (curl_url_set(base_h, CURLUPART_URL, base.c_str(), 0) != CURLUE_OK) {
-        curl_url_cleanup(base_h);
-        curl_url_cleanup(resolved_h);
-        return {};
-    }
-
-    // Resolve href relative to base
-    if (curl_url_set(resolved_h, CURLUPART_URL, href.c_str(), CURLU_URLENCODE) != CURLUE_OK) {
-        curl_url_cleanup(base_h);
-        curl_url_cleanup(resolved_h);
-        return {};
-    }
-
-    // Combine 
-    if (curl_url_set(resolved_h, CURLUPART_URL, href.c_str(), CURLU_URLENCODE) != CURLUE_OK) {
-        curl_url_cleanup(base_h);
-        curl_url_cleanup(resolved_h);
-        return {};
-    }
-
-    // Extract final normalized URL
-    char* out_url = nullptr;
-    if (curl_url_get(resolved_h, CURLUPART_URL, &out_url, 0) != CURLUE_OK) {
-        curl_url_cleanup(base_h);
-        curl_url_cleanup(resolved_h);
-        return {};
-    }
-
-    std::string result(out_url);
-    curl_free(out_url);
-
-    const auto pos = result.find('#');
-    if (pos != std::string::npos) {
-        result.resize(pos);
-    }
-
-    curl_url_cleanup(base_h);
-    curl_url_cleanup(resolved_h);
-    return result;
+    std::string base_fixed = base;
+    if (base_fixed.back() != '/')
+        base_fixed += '/';
+    return base_fixed + href;
 }
 
 /// Populate form vector via recursive traversal of Gumbo HTML DOM tree.
@@ -278,8 +240,10 @@ void Crawler::parse_html(
             if (href && href->value && href->value[0] != '#') {
                 // Skip fragment-only links
                 std::string hrefs = href->value;
+                std::cout << "normalize_url(" << base_url << ", " << hrefs << ");\n";
                 std::string norm = normalize_url(base_url, hrefs);
                 if (!norm.empty()) {
+                    std::cout << "Inserting into out links\n";
                     out_links.insert(norm);
                 }
             }
@@ -450,6 +414,7 @@ std::vector<CrawlResult> Crawler::run() {
 
             if (depth < opts_.max_depth) {
                 for (const auto& link : links) {
+                    std::cout << link << "\n";
                     // Add links found to queue if not visited and if same-origin
                     if (visited_.count(link)) {
                         continue;
