@@ -240,10 +240,8 @@ void Crawler::parse_html(
             if (href && href->value && href->value[0] != '#') {
                 // Skip fragment-only links
                 std::string hrefs = href->value;
-                std::cout << "normalize_url(" << base_url << ", " << hrefs << ");\n";
                 std::string norm = normalize_url(base_url, hrefs);
                 if (!norm.empty()) {
-                    std::cout << "Inserting into out links\n";
                     out_links.insert(norm);
                 }
             }
@@ -414,7 +412,6 @@ std::vector<CrawlResult> Crawler::run() {
 
             if (depth < opts_.max_depth) {
                 for (const auto& link : links) {
-                    std::cout << link << "\n";
                     // Add links found to queue if not visited and if same-origin
                     if (visited_.count(link)) {
                         continue;
