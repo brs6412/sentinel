@@ -1,3 +1,5 @@
+#pragma once
+
 /**
  * @brief Represents results of crawling a single url
  */
@@ -11,4 +13,4 @@ struct CrawlResult {
     std::vector<std::string> discovery_path;
     std::string timestamp;
     std::string hash;
-}
+};

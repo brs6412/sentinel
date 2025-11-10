@@ -1,3 +1,7 @@
+#pragma once
+#include <map>
+#include <nlohmann/json.hpp>
+
 /**
  * @brief Represents a finding that needs reproduction artifacts
  */
