@@ -20,7 +20,7 @@ endif()
 
 # -------------------- Libraries -----------------------
 add_library(schema INTERFACE)
-target_include_directories(schema INTERFACE src/schema)
+target_include_directories(schema INTERFACE ${CMAKE_SOURCE_DIR})
 
 add_library(core
     src/core/http_client.cpp
@@ -50,6 +50,7 @@ target_link_libraries(logging PUBLIC
 
 add_library(artifacts
     src/artifacts/artifacts.cpp
+    src/artifacts/vuln_engine.cpp
 )
 target_include_directories(artifacts PUBLIC src/artifacts)
 target_link_libraries(artifacts PUBLIC
