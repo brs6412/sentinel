@@ -19,6 +19,7 @@ struct HeaderCheck {
 // Cookie information to report findings on
 struct CookieFinding {
     std::string name;
+    std::string attribute;
     std::string observed;
     bool missing;
 };
@@ -50,6 +51,14 @@ static inline std::string toLower(const std::string &s) {
     return out;
 }
 
+// Helper function to trim space for equality checking
+static inline std::string trim(const std::string &s) {
+    size_t a = s.find_first_not_of(" \t\r\n");
+    if (a == std::string::npos) return "";
+    size_t b = s.find_last_not_of(" \t\r\n");
+    return s.substr(a, b - a + 1);
+}
+
 // Parse set-cookie headers into tokens
 std::vector<std::string> parse_cookie_attributes(const std::string &cookie_value) {
     std::vector<std::string> attrs;
@@ -58,6 +67,7 @@ std::vector<std::string> parse_cookie_attributes(const std::string &cookie_value
         size_t semi = cookie_value.find(';', start);
         std::string token = (semi == std::string::npos) ? 
             cookie_value.substr(start) : cookie_value.substr(start, semi - start);
+        token = trim(token);
         attrs.push_back(toLower(token));
         if (semi == std::string::npos) break;
         start = semi + 1;
@@ -101,7 +111,7 @@ void VulnEngine::checkSecurityHeaders(const CrawlResult& result, std::vector<Fin
             f.evidence = {
                 {"header", check.name},
                 {"description", evidence},
-                {"observed_value", valueOpt ? *valueOpt : "none"}
+                {"observed_value", valueOpt ? "[" + *valueOpt + "]" : "[]"}
             };
             f.severity = "medium"; 
             f.confidence = 0.95;
@@ -143,19 +153,22 @@ void VulnEngine::checkCookies(const CrawlResult& result, std::vector<Finding>& f
         std::vector<CookieFinding> report;
         if (!has_secure) {
             CookieFinding cf;
-            cf.name = "secure";
+            cf.name = cookie_name;
+            cf.attribute = "secure";
             cf.missing = true;
             report.push_back(std::move(cf));
         }
         if (!has_httponly) {
             CookieFinding cf;
-            cf.name = "httponly";
+            cf.name = cookie_name;
+            cf.attribute = "httponly";
             cf.missing = true;
             report.push_back(std::move(cf));
         }
         if (!has_samesite) {
             CookieFinding cf;
-            cf.name = "samesite";
+            cf.name = cookie_name;
+            cf.attribute = "samesite";
             cf.missing = true;
             report.push_back(std::move(cf));
         }
@@ -168,14 +181,17 @@ void VulnEngine::checkCookies(const CrawlResult& result, std::vector<Finding>& f
         ) {
             // SameSite present but misconfigured
             CookieFinding cf;
-            cf.name = "samesite";
+            cf.name = cookie_name;
+            cf.attribute = "samesite";
             cf.observed = samesite_val;
             cf.missing = false;
             report.push_back(std::move(cf));
         }
-        if (!has_samesite && !samesite_val.empty() && samesite_val == "none" && !has_secure) {
+        if (has_samesite && !samesite_val.empty() && samesite_val == "none" && !has_secure) {
+            // SameSite present, set to None, and missing Secure
             CookieFinding cf;
-            cf.name = "samesite";
+            cf.name = cookie_name;
+            cf.attribute= "samesite";
             cf.observed = samesite_val;
             cf.missing = true;
             report.push_back(std::move(cf));
@@ -194,19 +210,19 @@ void VulnEngine::checkCookies(const CrawlResult& result, std::vector<Finding>& f
             f.evidence = {
                 {"cookie", item.name},
                 {"description",
-                    item.missing ? 
-                    "Cookie attribute not set" : 
-                    "Cookie misconfiguration"
+                    (item.missing && item.observed.empty()) ?
+                    "Cookie attribute " + item.attribute + " not set" :
+                    "Cookie attribute " + item.attribute + " misconfiguration"
                 },
                 {"observed_value", 
                     (item.missing && item.observed.empty())? 
-                    "none" :
-                    item.observed
+                    "[]" :
+                    "[" + item.observed + "]"
                 }
             };
             f.severity = "medium";
             f.confidence = 0.95;
-            f.remediation_id = item.missing ? "missing_cookie_attribute" : "misconfigured_cookie";
+            f.remediation_id = (item.missing && item.observed.empty())? "missing_cookie_attribute" : "misconfigured_cookie";
 
             findings.push_back(std::move(f));
         }
