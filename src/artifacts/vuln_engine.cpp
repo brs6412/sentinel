@@ -9,6 +9,7 @@
 #include <vector>
 #include <utility>
 #include <optional>
+#include <iostream>
 
 // Headers to check and their optional dangerous values
 struct HeaderCheck {
@@ -222,14 +223,63 @@ void VulnEngine::checkCookies(const CrawlResult& result, std::vector<Finding>& f
             };
             f.severity = "medium";
             f.confidence = 0.95;
-            f.remediation_id = (item.missing && item.observed.empty())? "missing_cookie_attribute" : "misconfigured_cookie";
+            f.remediation_id = (item.missing && item.observed.empty())?
+                "missing_cookie_attribute" :
+                "misconfigured_cookie";
 
             findings.push_back(std::move(f));
         }
     }
 }
 
-void VulnEngine::checkCORS(const CrawlResult& result, std::vector<Finding>& findings) {}
+void VulnEngine::checkCORS(const CrawlResult& result, std::vector<Finding>& findings) {
+    auto origin = getHeaderValue(result, "access-control-allow-origin");
+    auto creds = getHeaderValue(result, "access-control-allow-credentials");
+
+    std::string desc;
+    std::string category;
+    double confidence = 0.0;
+    std::string severity = "medium";
+
+    if (origin && toLower(*origin) == "*" && creds && toLower(*creds) == "true") {
+        desc = "CORS misconfiguration: wildcard origin with credentials enabled";
+        category = "cors_combined_misconfig";
+        severity = "high";
+        confidence = 0.95;
+    } else if (origin && toLower(*origin) == "*") {
+        desc = "CORS misconfiguration: wildcard Access-Control-Allow-Origin";
+        category = "cors_wildcard_origin";
+        severity = "medium";
+        confidence = 0.90;
+    } else if (creds && toLower(*creds) == "true") {
+        desc = "CORS misconfiguration: credentials allowed for unspecified origin";
+        category = "cors_credentials_enabled";
+        severity = "medium";
+        confidence = 0.85;
+    }
+
+    if (!desc.empty()) {
+        Finding f;
+        f.id = "finding_" + std::to_string(findings.size() + 1);
+        f.url = result.url;
+        f.method = result.method;
+        f.category = "cors_misconfig";
+        f.headers = std::map<std::string, std::string>(
+                result.headers.begin(),
+                result.headers.end()
+        );
+        f.evidence = {
+            {"description", desc},
+            {"Allow-Origin", origin ? "[" + *origin + "]" : "[]"},
+            {"Allow-Credentials", creds ? "[" + *creds + "]" : "[]"}
+        };
+        f.severity = severity;
+        f.confidence = confidence;
+        f.remediation_id = category;
+
+        findings.push_back(std::move(f));
+    }
+}
 
 void VulnEngine::checkReflectedXSS(const CrawlResult& result, std::vector<Finding>& findings) {}
 
@@ -242,6 +292,7 @@ std::vector<Finding> VulnEngine::analyze(const std::vector <CrawlResult>& crawl_
     std::vector<Finding> findings;
 
     for (const auto& result : crawl_results) {
+        std::cout << result.source << "\n";
         checkSecurityHeaders(result, findings);
         checkCookies(result, findings);
         checkCORS(result, findings);
