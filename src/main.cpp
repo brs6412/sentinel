@@ -1,8 +1,8 @@
 #include "core/http_client.h"
 #include "core/crawler.h"
+#include "core/vuln_engine.h"
 #include "logging/chain.h"
 #include "artifacts/artifacts.h"
-#include "artifacts/vuln_engine.h"
 #include "budget/policy.h"
 #include <schema/finding.h>
 #include <iostream>
@@ -20,17 +20,23 @@ std::string generate_run_id() {
     return oss.str();
 }
 
-int generate_findings(std::string run_id, std::vector<CrawlResult>& results) {
+int generate_findings(HttpClient& client, std::string run_id, std::vector<CrawlResult>& results) {
     logging::ChainLogger logger("./logs/scan.log.jsonl", run_id);
 
-    VulnEngine vulnEngine;
+    VulnEngine vulnEngine(client);
     std::vector<Finding> findings = vulnEngine.analyze(results);
        
     std::cout << "Generated " << findings.size() << " findings\n";
 
-    // Write results to JSON
+    // Write results to JSON and create mapping of aggregated URLs to findings
+    std::map<std::string, std::vector<std::pair<std::string, nlohmann::json>>> grouped;
     nlohmann::json out = nlohmann::json::array();
     for (auto &f : findings) {
+        const std::string& url = f.url;
+        const std::string& category = f.category;
+        const nlohmann::json& evidence = f.evidence;
+        grouped[url].push_back({category, evidence});
+
         nlohmann::json j;
         j["id"] = f.id;
         j["url"] = f.url;
@@ -66,6 +72,15 @@ int generate_findings(std::string run_id, std::vector<CrawlResult>& results) {
     if (artifacts::ArtifactGenerator::generate_catch2_tests(
         findings, run_id, "./artifacts/repro_" + run_id + ".cpp")) {
         std::cout << "  ✓ repro_" << run_id << ".cpp\n";
+    }
+
+    std::cout << "Results:\n";
+    for (const auto& [url, vec] : grouped) {
+        std::cout << url << ":\n";
+        for (const auto& [category, evidence] : vec) {
+            std::cout << " " << category << ": \n";
+            std::cout << " "  << evidence.dump(2) << "\n";
+        }
     }
     return 0;
 }
@@ -146,7 +161,7 @@ int run_scan(int argc, char** argv) {
     ofs.close();
 
     std::cout << "Generating findings...\n";
-    generate_findings(run_id, results); 
+    generate_findings(client, run_id, results); 
     
     return 0;
 }

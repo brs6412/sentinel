@@ -25,6 +25,7 @@ target_include_directories(schema INTERFACE ${CMAKE_SOURCE_DIR})
 add_library(core
     src/core/http_client.cpp
     src/core/crawler.cpp
+    src/core/vuln_engine.cpp
 )
 target_include_directories(core PUBLIC
     $<TARGET_PROPERTY:nlohmann_json::nlohmann_json,INTERFACE_INCLUDE_DIRECTORIES>
@@ -50,7 +51,6 @@ target_link_libraries(logging PUBLIC
 
 add_library(artifacts
     src/artifacts/artifacts.cpp
-    src/artifacts/vuln_engine.cpp
 )
 target_include_directories(artifacts PUBLIC src/artifacts)
 target_link_libraries(artifacts PUBLIC
