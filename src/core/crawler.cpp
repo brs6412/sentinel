@@ -412,6 +412,11 @@ std::vector<CrawlResult> Crawler::run() {
         }
         visited_.insert(url);
 
+        if (url.find("robots.txt") != std::string::npos ||
+            url.find("sitemap.xml") != std::string::npos) {
+            continue;
+        }
+
         // Prevent leaving target domain
         std::string base_origin = origin_of(seeds_[0]);
         std::string current = origin_of(url);
