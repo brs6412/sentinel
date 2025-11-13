@@ -1,7 +1,4 @@
-/**
- * @file vuln_engine.cpp
- * @brief Vulnerability engine using Crawler output
- */
+// Vulnerability engine using Crawler output
 
 #include "vuln_engine.h"
 #include "http_client.h"

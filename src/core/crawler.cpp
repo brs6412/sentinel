@@ -1,7 +1,4 @@
-/**
- * @file crawler.cpp
- * @brief Web crawler using gumbo and http_client
- */
+// Web crawler using gumbo and http_client
 
 #include "crawler.h"
 #include <gumbo.h>

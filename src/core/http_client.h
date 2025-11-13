@@ -3,18 +3,10 @@
 #include <map>
 #include <vector>
 
-/**
- * @file http_client.h
- * @brief HTTP client wrapper around libcurl
- * 
- * Provides a simple interface for making HTTP requests with configurable
- * timeouts, redirect handling, and custom headers.
- */
+// HTTP client wrapper around libcurl.
+// Provides a simple interface for making HTTP requests with configurable
+// timeouts, redirect handling, and custom headers.
 
-/**
- * HTTP request parameters
- * @http_client.h (9-14)
- */
 struct HttpRequest {
     std::string method = "GET";
     std::string url;
@@ -22,10 +14,6 @@ struct HttpRequest {
     std::string body;
 };
 
-/**
- * HTTP response data
- * @http_client.h (19-27)
- */
 struct HttpResponse {
     long status = 0;
     std::vector<std::pair<std::string, std::string>> headers;
@@ -36,16 +24,8 @@ struct HttpResponse {
     size_t body_bytes = 0;
 };
 
-/**
- * HTTP client using libcurl under the hood
- * @http_client.h (32-75)
- */
 class HttpClient {
 public:
-    /**
-     * Configuration options for the HTTP client
-     * @http_client.h (37-54)
-     */
     struct Options {
         long timeout_seconds;
         long connect_timeout_seconds;
@@ -65,21 +45,15 @@ public:
     };
 
     /**
-     * Create an HTTP client with the given options
-     * @http_client.h (60)
+     * @brief Create an HTTP client with the given options
      * @param opts Client configuration (timeouts, redirects, etc.)
      */
     explicit HttpClient(const Options& opts = Options());
     
-    /**
-     * Clean up libcurl resources
-     * @http_client.h (63)
-     */
     ~HttpClient();
 
     /**
-     * Make an HTTP request and fill in the response
-     * @http_client.h (71)
+     * @brief Make an HTTP request and fill in the response
      * @param req Request details (method, URL, headers, body)
      * @param resp Response object that gets populated
      * @return true if request succeeded, false on error

@@ -5,38 +5,28 @@
 #include <schema/crawl_result.h>
 #include <schema/finding.h>
 
-/**
- * @file vuln_engine.h
- * @brief Analyzes crawled pages and generates security findings
- * 
- * Checks for common security issues like missing headers, unsafe cookies,
- * CORS misconfigurations, XSS, CSRF, and IDOR vulnerabilities.
- */
+// Analyzes crawled pages and generates security findings.
+// Checks for common security issues like missing headers, unsafe cookies,
+// CORS misconfigurations, XSS, CSRF, and IDOR vulnerabilities.
 
-/**
- * Analyzes crawled pages for security vulnerabilities
- * @vuln_engine.h (10-75)
- */
 class VulnEngine {
 public:
     /**
-     * Create a vulnerability engine with a confidence threshold
-     * @vuln_engine.h (16)
+     * @brief Create a vulnerability engine with a confidence threshold
+     * @param client HTTP client for making requests
      * @param confidence_threshold Minimum confidence to report a finding (0.0-1.0)
      */
     VulnEngine(const HttpClient& client, double confidence_threshold = 0.7);
 
     /**
-     * Analyze crawled pages and generate security findings
-     * @vuln_engine.h (22)
+     * @brief Analyze crawled pages and generate security findings
      * @param crawl_results Pages and endpoints discovered by the crawler
      * @return List of security findings
      */
     std::vector<Finding> analyze(const std::vector<CrawlResult>& crawl_results);
 
     /**
-     * Set the maximum acceptable risk score for CI/CD gating
-     * @vuln_engine.h (28)
+     * @brief Set the maximum acceptable risk score for CI/CD gating
      * @param max_risk Maximum risk score before blocking
      */
     void setRiskBudget(int max_risk);
@@ -47,48 +37,42 @@ private:
     int riskBudget_;
 
     /**
-     * Check for missing or misconfigured security headers
-     * @vuln_engine.h (39)
+     * @brief Check for missing or misconfigured security headers
      * @param result Page to check
      * @param findings List to add findings to
      */
     void checkSecurityHeaders(const CrawlResult& result, std::vector<Finding>& findings);
 
     /**
-     * Check for unsafe cookie settings
-     * @vuln_engine.h (46)
+     * @brief Check for unsafe cookie settings
      * @param result Page to check
      * @param findings List to add findings to
      */
     void checkCookies(const CrawlResult& result, std::vector<Finding>& findings);
 
     /**
-     * Check for misconfigured CORS headers
-     * @vuln_engine.h (53)
+     * @brief Check for misconfigured CORS headers
      * @param result Page to check
      * @param findings List to add findings to
      */
     void checkCORS(const CrawlResult& result, std::vector<Finding>& findings);
 
     /**
-     * Check for reflected XSS vulnerabilities
-     * @vuln_engine.h (60)
+     * @brief Check for reflected XSS vulnerabilities
      * @param result Page to check
      * @param findings List to add findings to
      */
     void checkReflectedXSS(const CrawlResult& result, std::vector<Finding>& findings);
 
     /**
-     * Check for missing CSRF protection on POST endpoints
-     * @vuln_engine.h (67)
+     * @brief Check for missing CSRF protection on POST endpoints
      * @param result Page to check
      * @param findings List to add findings to
      */
     void checkCSRF(const CrawlResult& result, std::vector<Finding>& findings);
 
     /**
-     * Check for insecure direct object references (IDOR)
-     * @vuln_engine.h (74)
+     * @brief Check for insecure direct object references (IDOR)
      * @param result Page to check
      * @param findings List to add findings to
      */

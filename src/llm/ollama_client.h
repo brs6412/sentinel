@@ -15,26 +15,17 @@
 
 namespace llm {
 
-/**
- * @file ollama_client.h
- * @brief HTTP client for talking to Ollama LLM servers
- *
- * Handles health checks and text generation via Ollama's REST API.
- * Supports JSON schema for structured outputs and configurable timeouts.
- */
+// HTTP client for talking to Ollama LLM servers.
+// Handles health checks and text generation via Ollama's REST API.
+// Supports JSON schema for structured outputs and configurable timeouts.
 
-/**
- * HTTP client for Ollama API
- * @ollama_client.h (24-186)
- *
- * Talks to an Ollama server over HTTP. Can check if it's running and
- * generate text using any model the server has available.
- */
+// Talks to an Ollama server over HTTP. Can check if it's running and
+// generate text using any model the server has available.
+
 class OllamaClient {
 public:
     /**
-     * Create a client pointing to an Ollama server
-     * @ollama_client.h (31-33)
+     * @brief Create a client pointing to an Ollama server
      * @param host Server URL like "http://127.0.0.1:11434". If empty, uses OLLAMA_HOST
      *             env var or defaults to localhost:11434
      */
@@ -43,8 +34,7 @@ public:
     }
 
     /**
-     * Check if the Ollama server is up and responding
-     * @ollama_client.h (39-50)
+     * @brief Check if the Ollama server is up and responding
      * @return true if server responds to /api/tags, false otherwise
      */
     bool IsHealthy() {
@@ -61,8 +51,7 @@ public:
     }
 
     /**
-     * Generate text using the specified model
-     * @ollama_client.h (62-131)
+     * @brief Generate text using the specified model
      * @param model Model name like "llama3.1" or "mistral"
      * @param prompt What to ask the model
      * @param json_schema Optional JSON schema if you want structured output

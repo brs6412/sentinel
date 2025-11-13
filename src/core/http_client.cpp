@@ -1,7 +1,4 @@
-/**
- * @file http_client.cpp
- * @brief Lightweight HTTP client using libcurl
- */
+// Lightweight HTTP client using libcurl
 
 #include "http_client.h"
 #include <curl/curl.h>

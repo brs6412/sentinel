@@ -1,7 +1,4 @@
-/**
- * @file chain.cpp
- * @brief Implementation of tamper-evident hash-chained JSONL logger
- */
+// Implementation of tamper-evident hash-chained JSONL logger
 
 #include "chain.h"
 #include <openssl/sha.h>

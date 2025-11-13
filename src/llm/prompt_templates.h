@@ -6,18 +6,13 @@
 
 namespace llm {
 
-/**
- * @file prompt_templates.h
- * @brief Helper functions to build prompts for LLM interactions
- *
- * These functions format security findings and other inputs into prompts
- * that work well with LLMs for generating proof-of-exploit scripts and
- * safety scores.
- */
+// Helper functions to build prompts for LLM interactions.
+// These functions format security findings and other inputs into prompts
+// that work well with LLMs for generating proof-of-exploit scripts and
+// safety scores.
 
 /**
- * Build a prompt asking the LLM to generate a proof-of-exploit script
- * @prompt_templates.h (14-39)
+ * @brief Build a prompt asking the LLM to generate a proof-of-exploit script
  * @param finding_json Security finding with category, URL, method, evidence, etc.
  * @return Formatted prompt string
  */
@@ -49,8 +44,7 @@ inline std::string BuildPoEPrompt(const nlohmann::json& finding_json) {
 }
 
 /**
- * Build a prompt asking the LLM to rate input safety on a 0-100 scale
- * @prompt_templates.h (46-54)
+ * @brief Build a prompt asking the LLM to rate input safety on a 0-100 scale
  * @param input_snippet Text to evaluate for safety/risk
  * @return Formatted prompt string
  */

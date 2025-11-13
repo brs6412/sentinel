@@ -1,7 +1,4 @@
-/**
- * @file artifacts.cpp
- * @brief Implementation of reproduction artifact generators
- */
+// Implementation of reproduction artifact generators
 
 #include "artifacts.h"
 #include <iostream>

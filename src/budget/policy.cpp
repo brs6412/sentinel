@@ -1,7 +1,4 @@
-/**
- * @file policy.cpp
- * @brief Implementation of risk budget and policy evaluation
- */
+// Implementation of risk budget and policy evaluation
 
 #include "policy.h"
 #include <fstream>

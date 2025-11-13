@@ -13,8 +13,8 @@
 #include <sstream>
 
 /**
- * @brief Generates a unique identifier for a program run based on current UTC datetime.
- * @return std::string A string representing the run identifier
+ * @brief Generates a unique identifier for a program run based on current UTC datetime
+ * @return A string representing the run identifier
  */
 std::string generate_run_id() {
     auto now = std::chrono::system_clock::now();
@@ -25,12 +25,11 @@ std::string generate_run_id() {
 }
 
 /**
- * @brief Analyzes crawl results to generate vulnerability findings and related artifacts.
- *
- * @param client Reference to an HTTP client used for analysis.
- * @param run_id Identifier for the current program run.
- * @results Vector of crawl results to be analyzed.
- * @return int status of the analyzed findings
+ * @brief Analyzes crawl results to generate vulnerability findings and related artifacts
+ * @param client Reference to an HTTP client used for analysis
+ * @param run_id Identifier for the current program run
+ * @param results Vector of crawl results to be analyzed
+ * @return Status code (0 on success)
  */
 int generate_findings(HttpClient& client, std::string run_id, std::vector<CrawlResult>& results) {
     logging::ChainLogger logger("./logs/scan.log.jsonl", run_id);
@@ -98,11 +97,10 @@ int generate_findings(HttpClient& client, std::string run_id, std::vector<CrawlR
 }
 
 /**
- * @brief Executes a full scan workflow on a specified target.
- *
- * @param argc Argument count from command line.
- * @param argv Argument values from command line.
- * @return int Returns 0 on success, 2 if required arguments are missing.
+ * @brief Executes a full scan workflow on a specified target
+ * @param argc Argument count from command line
+ * @param argv Argument values from command line
+ * @return 0 on success, 2 if required arguments are missing
  */
 int run_scan(int argc, char** argv) {
     std::string target;
@@ -186,11 +184,10 @@ int run_scan(int argc, char** argv) {
 }
 
 /**
- * @brief Verifies the integrity of a JSONL log file.
- *
- * @param argc Argument count from the command line.
- * @param argv Argument values from the command line; argv[2] should be the log file path.
- * @return int Returns 0 if verification succeeds, 1 if it fails, and 2 if usage is incorrect.
+ * @brief Verifies the integrity of a JSONL log file
+ * @param argc Argument count from the command line
+ * @param argv Argument values from the command line; argv[2] should be the log file path
+ * @return 0 if verification succeeds, 1 if it fails, 2 if usage is incorrect
  */
 int cmd_verify(int argc, char** argv) {
     if (argc < 3) {
@@ -211,11 +208,10 @@ int cmd_verify(int argc, char** argv) {
 }
 
 /**
- * @brief Evaluates scan budget compliance against a log file and optional policy.
- *
- * @param argc Argument count from the command line.
- * @param argv Argument values from the command line; argv[2] and beyond specify policy and log file.
- * @return int Exit code reflecting budget compliance: typically 0 for compliant, non-zero for violations, 2 for usage errors.
+ * @brief Evaluates scan budget compliance against a log file and optional policy
+ * @param argc Argument count from the command line
+ * @param argv Argument values from the command line; argv[2] and beyond specify policy and log file
+ * @return Exit code reflecting budget compliance (0 for compliant, non-zero for violations, 2 for usage errors)
  */
 int cmd_budget(int argc, char** argv) {
     std::string policy_path;

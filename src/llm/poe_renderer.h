@@ -6,18 +6,13 @@
 
 namespace llm {
 
-/**
- * @file poe_renderer.h
- * @brief Extract proof-of-exploit commands from LLM responses
- *
- * LLMs can return proof-of-exploit scripts in various formats. This function
- * tries to extract a curl command or script from the response, with a sensible
- * fallback if the format isn't what we expect.
- */
+// Extract proof-of-exploit commands from LLM responses.
+// LLMs can return proof-of-exploit scripts in various formats. This function
+// tries to extract a curl command or script from the response, with a sensible
+// fallback if the format isn't what we expect.
 
 /**
- * Extract a proof-of-exploit command from an LLM response
- * @poe_renderer.h (14-54)
+ * @brief Extract a proof-of-exploit command from an LLM response
  * @param llm_result JSON response from the LLM (could be various formats)
  * @return A curl command or script, or a fallback template if nothing found
  */
