@@ -15,6 +15,7 @@
 #include <optional>
 #include <iostream>
 #include <nlohmann/json.hpp>
+#include <set>
 
 // Headers to check and their optional dangerous values
 struct HeaderCheck {
@@ -390,7 +391,6 @@ void VulnEngine::checkCORS(const CrawlResult& result, std::vector<Finding>& find
 
 void VulnEngine::checkReflectedXSS(const CrawlResult& result, std::vector<Finding>& findings) {
     if (result.params.empty()) {
-        std::cout << "Exiting early.\n";
         return;
     }
     auto resp_headers_map = std::map<std::string, std::string>(
@@ -398,9 +398,7 @@ void VulnEngine::checkReflectedXSS(const CrawlResult& result, std::vector<Findin
                 result.headers.end()
     );
 
-    std::cout << "Outside for loop\n";
     for (const auto& [param, orig_value] : result.params) {
-        std::cout << "Inside for loop\n";
         if (param.empty()) continue;
         std::string marker = make_marker(param);
         std::vector<std::pair<std::string,std::string>> variants = {
@@ -494,7 +492,35 @@ void VulnEngine::checkReflectedXSS(const CrawlResult& result, std::vector<Findin
     }
 }
 
-void VulnEngine::checkCSRF(const CrawlResult& result, std::vector<Finding>& findings) {}
+void VulnEngine::checkCSRF(const CrawlResult& result, std::vector<Finding>& findings) {
+    static const std::set<std::string> modifyingMethods = {"post", "put", "delete"};
+    if (!modifyingMethods.count(toLower(result.method))) return;
+
+    bool hasToken = false;
+    for (const auto&  [param, _] : result.params) {
+        std::string lower = toLower(param);
+        if (lower.find("csrf") != std::string::npos || lower.find("token") != std::string::npos) {
+            hasToken = true;
+            break;
+        }
+    }
+
+    if (!hasToken) {
+        Finding f;
+        f.id = "finding_" + std::to_string(findings.size() + 1);
+        f.url = result.url;
+        f.category = "csrf_missing_token";
+        f.headers = std::map<std::string, std::string>(
+                result.headers.begin(), 
+                result.headers.end()
+        );
+        f.evidence = {{"method", result.method}, {"description", "No CSRF token found"}};
+        f.severity = "medium";
+        f.confidence = 0.9;
+        f.remediation_id = "csrf";
+        findings.push_back(std::move(f));
+    }
+}
 
 void VulnEngine::checkIDOR(const CrawlResult& result, std::vector<Finding>& findings) {}
 
@@ -503,7 +529,6 @@ std::vector<Finding> VulnEngine::analyze(const std::vector <CrawlResult>& crawl_
     std::vector<Finding> findings;
 
     for (const auto& result : crawl_results) {
-        std::cout << result.source << "\n";
         checkSecurityHeaders(result, findings);
         checkCookies(result, findings);
         checkCORS(result, findings);
