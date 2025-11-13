@@ -48,6 +48,8 @@ int main() {
                     "  <url><loc>http://127.0.0.1:8080/</loc></url>\n"
                     "  <url><loc>http://127.0.0.1:8080/no-headers</loc></url>\n"
                     "  <url><loc>http://127.0.0.1:8080/set-cookie</loc></url>\n"
+                    "  <url><loc>http://127.0.0.1:8080/secure-cookie</loc></url>\n"
+                    "  <url><loc>http://127.0.0.1:8080/reflect</loc></url>\n"
                     "</urlset>\n";
     res.status = 200;
     res.set_content(x, "application/xml");
@@ -65,8 +67,14 @@ int main() {
       "<ul>"
       "<li><a href=\"/no-headers\">/no-headers</a></li>"
       "<li><a href=\"/set-cookie\">/set-cookie</a></li>"
+      "<li><a href=\"/secure-cookie\">/secure-cookie</a></li>"
+      "<li><a href=\"/reflect?q=sentinel_reflection_test\">/secure-cookie</a></li>"
       "</ul><p><a href=\"/robots.txt\">robots.txt</a> · <a href=\"/sitemap.xml\">sitemap.xml</a></p>"
       "</body></html>";
+    res.set_header("Content-Security-Policy", "default-src 'self'");
+    res.set_header("X-Frame-Options", "DENY");
+    res.set_header("X-Content-Type-Options", "nosniff");
+    res.set_header("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
     res.status = 200;
     res.set_content(html, "text/html");
   });
@@ -81,9 +89,46 @@ int main() {
   svr.Get("/set-cookie", [](const Request& req, Response& res) {
     maybe_delay_and_error(req, res);
     if (res.status == 500) return;
+    res.set_header("Content-Security-Policy", "default-src 'self'");
+    res.set_header("X-Frame-Options", "DENY");
+    res.set_header("X-Content-Type-Options", "nosniff");
+    res.set_header("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
     res.set_header("Set-Cookie", "sid=demo123; Path=/; SameSite=Lax");
     res.status = 200;
     res.set_content("<p>Set-Cookie sent without Secure/HttpOnly (by design).</p>", "text/html");
+  });
+
+  svr.Get("/secure-cookie", [](const Request& req, Response& res) {
+    maybe_delay_and_error(req, res);
+    if (res.status == 500) return;
+    res.set_header("Content-Security-Policy", "default-src 'self'");
+    res.set_header("X-Frame-Options", "DENY");
+    res.set_header("X-Content-Type-Options", "nosniff");
+    res.set_header("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+    res.set_header("Set-Cookie", "sid=demo123; Secure; HttpOnly; SameSite=Strict");
+    res.status = 200;
+    res.set_content("<p>Secure Cookie sent, no findings should generate.</p>", "text/html");
+  });
+
+  svr.Get("/reflect", [](const Request& req, Response& res) {
+    maybe_delay_and_error(req, res);
+    if (res.status == 500) return;
+    res.set_header("Content-Security-Policy", "default-src 'self'");
+    res.set_header("X-Frame-Options", "DENY");
+    res.set_header("X-Content-Type-Options", "nosniff");
+    res.set_header("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+    auto it = req.params.find("q");
+    std::string value = (it != req.params.end()) ? it->second : "";
+    res.status = 200;
+    std::string html_str =
+      "<!doctype html><html><body>"
+      "<h1>Reflected XSS Test</h1>"
+      "<p>Reflected (text): " + value + "</p>"
+      "<p>Reflected (attribute): <input type=\"text\" value="+value+"></p>"
+      "<pre>{{\"echo\":\"{" + value + "\"}}</pre>"
+      "</body></html>";
+    const char* html = html_str.c_str();
+    res.set_content(html, "text/plain");
   });
 
   std::cout << "Attempting to bind to http://127.0.0.1:8080\n";
@@ -91,6 +136,7 @@ int main() {
     std::fprintf(stderr, "ERROR: failed to bind 127.0.0.1:8080\n");
     return 1;
   }
+  std::cout << "Listening for requests...\n";
   svr.listen_after_bind();
   return 0;
 }
