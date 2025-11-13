@@ -12,6 +12,10 @@
 #include <iomanip>
 #include <sstream>
 
+/**
+ * @brief Generates a unique identifier for a program run based on current UTC datetime.
+ * @return std::string A string representing the run identifier
+ */
 std::string generate_run_id() {
     auto now = std::chrono::system_clock::now();
     auto time_t = std::chrono::system_clock::to_time_t(now);
@@ -20,6 +24,14 @@ std::string generate_run_id() {
     return oss.str();
 }
 
+/**
+ * @brief Analyzes crawl results to generate vulnerability findings and related artifacts.
+ *
+ * @param client Reference to an HTTP client used for analysis.
+ * @param run_id Identifier for the current program run.
+ * @results Vector of crawl results to be analyzed.
+ * @return int status of the analyzed findings
+ */
 int generate_findings(HttpClient& client, std::string run_id, std::vector<CrawlResult>& results) {
     logging::ChainLogger logger("./logs/scan.log.jsonl", run_id);
 
@@ -74,17 +86,24 @@ int generate_findings(HttpClient& client, std::string run_id, std::vector<CrawlR
         std::cout << "  ✓ repro_" << run_id << ".cpp\n";
     }
 
-    std::cout << "Results:\n";
-    for (const auto& [url, vec] : grouped) {
-        std::cout << url << ":\n";
-        for (const auto& [category, evidence] : vec) {
-            std::cout << " " << category << ": \n";
-            std::cout << " "  << evidence.dump(2) << "\n";
-        }
-    }
+//    std::cout << "Results:\n";
+//    for (const auto& [url, vec] : grouped) {
+//        std::cout << url << ":\n";
+//        for (const auto& [category, evidence] : vec) {
+//            std::cout << " " << category << ": \n";
+//            std::cout << " "  << evidence.dump(2) << "\n";
+//        }
+//    }
     return 0;
 }
 
+/**
+ * @brief Executes a full scan workflow on a specified target.
+ *
+ * @param argc Argument count from command line.
+ * @param argv Argument values from command line.
+ * @return int Returns 0 on success, 2 if required arguments are missing.
+ */
 int run_scan(int argc, char** argv) {
     std::string target;
     std::string outfile = "scan_results.jsonl";
@@ -166,6 +185,13 @@ int run_scan(int argc, char** argv) {
     return 0;
 }
 
+/**
+ * @brief Verifies the integrity of a JSONL log file.
+ *
+ * @param argc Argument count from the command line.
+ * @param argv Argument values from the command line; argv[2] should be the log file path.
+ * @return int Returns 0 if verification succeeds, 1 if it fails, and 2 if usage is incorrect.
+ */
 int cmd_verify(int argc, char** argv) {
     if (argc < 3) {
         std::cerr << "Usage: sentinel verify <log-file.jsonl>\n";
@@ -184,6 +210,13 @@ int cmd_verify(int argc, char** argv) {
     }
 }
 
+/**
+ * @brief Evaluates scan budget compliance against a log file and optional policy.
+ *
+ * @param argc Argument count from the command line.
+ * @param argv Argument values from the command line; argv[2] and beyond specify policy and log file.
+ * @return int Exit code reflecting budget compliance: typically 0 for compliant, non-zero for violations, 2 for usage errors.
+ */
 int cmd_budget(int argc, char** argv) {
     std::string policy_path;
     std::string log_path;
