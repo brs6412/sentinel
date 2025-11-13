@@ -11,7 +11,7 @@
 #include <iostream>
 #include <algorithm>
 #include <curl/curl.h>
-#include <openssl/sha.h>
+#include <openssl/evp.h>
 #include <chrono>
 #include <iomanip>
 #include <vector>
@@ -40,16 +40,19 @@ static std::string current_utc_timestamp() {
 
 /// Hash string using sha256.
 static std::string sha256_hex(const std::string& data) {
-    unsigned char digest[SHA256_DIGEST_LENGTH];
-    SHA256_CTX ctx;
-    SHA256_Init(&ctx);
-    SHA256_Update(&ctx, reinterpret_cast<const unsigned char*>(data.data()), data.size());
-    SHA256_Final(digest, &ctx);
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int digest_len = 0;
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr);
+    EVP_DigestUpdate(ctx, data.data(), data.size());
+    EVP_DigestFinal_ex(ctx, digest, &digest_len);
+    EVP_MD_CTX_free(ctx);
+
     std::ostringstream ss;
     ss << "sha256:";
     ss << std::hex << std::setfill('0');
-    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-        ss << std::setw(2) << (int)digest[i];
+    for (unsigned int i = 0; i < digest_len; i++) {
+        ss << std::setw(2) << static_cast<int>(digest[i]);
     }
     return ss.str();
 }
@@ -58,6 +61,64 @@ static std::string sha256_hex(const std::string& data) {
 static std::string to_lower(std::string s) {
     std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return std::tolower(c); });
     return s;
+}
+
+// Helper function to decode URL
+static std::string url_decode(const std::string& str) {
+    std::string result;
+    result.reserve(str.size());
+    for (size_t i = 0; i < str.size(); i++) {
+        if (str[i] == '%' && i + 2 < str.size()) {
+            int val = 0;
+            std::istringstream iss(str.substr(i + 1, 2));
+            if (iss >> std::hex >> val)
+                result.push_back(static_cast<char>(val));
+            i += 2;
+        } else if (str[i] == '+') {
+            result.push_back(' ');
+        } else {
+            result.push_back(str[i]);
+        }
+    }
+    return result;
+}
+
+// Helper function to parse a url for query params
+std::vector<std::pair<std::string, std::string>> parse_query(const std::string& url) {
+    std::vector<std::pair<std::string, std::string>> params;
+    size_t qpos = url.find('?');
+    if (qpos == std::string::npos || qpos + 1 >= url.size())
+        return params;
+
+    std::string query = url.substr(qpos + 1);
+    size_t start = 0;
+    while (start < query.size()) {
+        size_t amp = query.find('&', start);
+        std::string token = (amp == std::string::npos) ? 
+            query.substr(start) :
+            query.substr(start, amp - start);
+
+        size_t eq = token.find('=');
+        std::string key = url_decode(eq == std::string::npos ? token : token.substr(0, eq));
+        std::string val = (eq == std::string::npos) ? "" : url_decode(token.substr(eq + 1));
+
+        if (!key.empty())
+            params.emplace_back(key, val);
+
+        if (amp == std::string::npos) break;
+        start = amp + 1;
+    }
+    return params;
+}
+
+// Helper function to check if URL path segment consists of digits
+bool is_numeric_segment(const std::string& segment) {
+    if (segment.empty()) return false;
+    for (char c : segment) {
+        if (!std::isdigit(static_cast<unsigned char>(c)))
+            return false;
+    }
+    return true;
 }
 
 /// Init Crawler with HttpClient reference and config options.
@@ -393,7 +454,15 @@ std::vector<CrawlResult> Crawler::run() {
         cr.hash = sha256_hex(url);
 
         if (resp.status >= 200 && resp.status < 400 && !resp.body.empty()) {
-            results.push_back(std::move(cr));
+            auto query_params = parse_query(url);
+            if (!query_params.empty()) {
+                CrawlResult cr_q = cr;
+                cr_q.params = std::move(query_params);
+                cr_q.source = resp.body;
+                results.push_back(std::move(cr_q));
+            } else {
+                results.push_back(std::move(cr));
+            }
 
             std::set<std::string> links;
             std::vector<Form> forms;

@@ -4,12 +4,17 @@
  */
 
 #include "vuln_engine.h"
+#include "http_client.h"
 #include <algorithm>
+#include <regex>
+#include <random>
+#include <sstream>
 #include <string>
 #include <vector>
 #include <utility>
 #include <optional>
 #include <iostream>
+#include <nlohmann/json.hpp>
 
 // Headers to check and their optional dangerous values
 struct HeaderCheck {
@@ -25,8 +30,8 @@ struct CookieFinding {
     bool missing;
 };
 
-VulnEngine::VulnEngine(double confidence_threshold)
-    : confidenceThreshold_(confidence_threshold), riskBudget_(100) {}
+VulnEngine::VulnEngine(const HttpClient& client, double confidence_threshold)
+    : client_(client), confidenceThreshold_(confidence_threshold), riskBudget_(100) {}
 
 // Set max risk for vulnerabilities
 void VulnEngine::setRiskBudget(int max_risk) {
@@ -74,6 +79,108 @@ std::vector<std::string> parse_cookie_attributes(const std::string &cookie_value
         start = semi + 1;
     }
     return attrs;
+}
+
+// Helper function to generate a unique marker for a param
+static std::string make_marker(const std::string& param) {
+    static std::mt19937_64 rng(std::random_device{}());
+    uint64_t r = rng();
+    std::ostringstream oss;
+    oss << "__XSS_MARKER_" << param << "_" << std::hex << r << "__";
+    return oss.str();
+}
+
+// Helper function to url encode a string
+static std::string url_encode(const std::string& s) {
+    std::ostringstream escaped;
+    escaped.fill('0');
+    escaped << std::hex;
+    for (auto c : s) {
+        if (isalnum((unsigned char)c) || c == '-' || c == '_' || c == '.' || c == '~') {
+            escaped << c;
+        } else {
+            escaped << '%' << std::setw(2) << int((unsigned char)c);
+        }
+    }
+    return escaped.str();
+}
+
+// Helper function to html escape a string
+static std::string html_escape(const std::string& s) {
+    std::string out;
+    for (char c : s) {
+        switch (c) {
+            case '&': out += "&amp;"; break;
+            case '<': out += "&lt;"; break;
+            case '>': out += "&gt;"; break;
+            case '"': out += "&quot;"; break;
+            case '\'': out += "&#39;"; break;
+            default: out.push_back(c);
+        }
+    }
+    return out;
+}
+
+// Quick check for HTTP response content type
+static bool is_html_content_type(const std::map<std::string,std::string>&headers) {
+    auto it = headers.find("content-type");
+    if (it == headers.end()) return true;
+    std::string ct = it->second;
+    ct = toLower(ct);
+    return ct.find("html") != std::string::npos || ct.find("text/") != std::string::npos;
+}
+
+// Quick context classifier: script, attribute, text, json, header
+static std::string classify_context(const std::string& body, const std::string& marker) {
+    auto pos = body.find(marker);
+    if (pos == std::string::npos) return "none";
+
+    size_t start = (pos < 50) ? 0 : pos - 50;
+    size_t end = std::min(body.size(), pos + marker.size() + 50);
+    std::string window = body.substr(start, end - start);
+
+    std::regex script_rx(R"(<script[^>]*>[^<]*\b)");
+    if (std::regex_search(window, std::regex("<script", std::regex::icase)))
+        return "script";
+
+    if (std::regex_search(window, std::regex(R"([a-zA-Z0-9_\-]+\s*=\s*["'][^"']*__XSS_MARKER)")))
+        return "attribute";
+
+    if (std::regex_search(window, std::regex(R"(["'][^"']+["']\s*:\s*["'][^"']*__XSS_MARKER)")))
+        return "json";
+
+    return "text";
+}
+
+// Helper function that builds GET URL with replaced param
+static std::string build_url_with_param(
+        const std::string& base,
+        const std::vector<std::pair<std::string,std::string>>& params,
+        const std::string& replace_param, const std::string& value
+    ) {
+    std::ostringstream oss;
+    std::string path = base;
+    std::string existing_q;
+    auto qpos = base.find('?');
+    if (qpos != std::string::npos) {
+        path = base.substr(0, qpos);
+        existing_q = base.substr(qpos + 1);
+    }
+    oss << path << '?';
+    bool first = true;
+    for (const auto& p : params) {
+        std::string k = p.first;
+        std::string v = p.second;
+        if (k == replace_param) v = value;
+        if (!first) oss << '&';
+        oss << k << '=' << url_encode(v);
+        first = false;
+    }
+    // If no params in vector, preserve existing_q
+    if (params.empty() && !existing_q.empty()) {
+        oss << existing_q;
+    }
+    return oss.str();
 }
 
 // --- Individual checks ---
@@ -281,7 +388,111 @@ void VulnEngine::checkCORS(const CrawlResult& result, std::vector<Finding>& find
     }
 }
 
-void VulnEngine::checkReflectedXSS(const CrawlResult& result, std::vector<Finding>& findings) {}
+void VulnEngine::checkReflectedXSS(const CrawlResult& result, std::vector<Finding>& findings) {
+    if (result.params.empty()) {
+        std::cout << "Exiting early.\n";
+        return;
+    }
+    auto resp_headers_map = std::map<std::string, std::string>(
+                result.headers.begin(),
+                result.headers.end()
+    );
+
+    std::cout << "Outside for loop\n";
+    for (const auto& [param, orig_value] : result.params) {
+        std::cout << "Inside for loop\n";
+        if (param.empty()) continue;
+        std::string marker = make_marker(param);
+        std::vector<std::pair<std::string,std::string>> variants = {
+            {"raw", marker},
+            {"url_encoded", url_encode(marker)},
+            {"html_escaped", html_escape(marker)}
+        };
+        bool flag = false;
+        double best_conf = 0.0;
+        std::string best_desc;
+        nlohmann::json best_evidence;
+        
+        for (const auto& var : variants) {
+            const std::string& mode = var.first;
+            const std::string& injected = var.second;
+
+            HttpRequest req;
+            std::string target_url = result.url;
+            req.method = "GET";
+            req.url = target_url;
+            req.headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
+            if (toLower(result.source) == "form" && toLower(result.method) == "post") {
+                continue;
+            }
+
+            req.url = build_url_with_param(result.url, result.params, param, injected);
+
+            HttpResponse resp;
+            client_.perform(req, resp);
+
+            if (resp.status < 200 || resp.status >= 400) continue;
+
+            if (resp.body.find(injected) != std::string::npos) {
+                flag = true;
+                std::string context = classify_context(resp.body, injected);
+
+                double confidence = 0.5;
+                if (context == "script" || context == "attribute") {
+                    confidence = 0.95;
+                } else if (context == "text") {
+                    confidence = 0.8;
+                } else if (context == "json") {
+                    confidence = 0.75;
+                }
+
+                std::ostringstream desc;
+                desc << "Reflected marker found for param '" 
+                    << param << "' (mode=" << mode << ", context=" << context << ")";
+
+                nlohmann::json evidence;
+                evidence["param"] = param;
+                evidence["mode"] = mode;
+                evidence["injected"] = injected;
+                evidence["context"] = context;
+                evidence["status"] = resp.status;
+                evidence["response_snippet"] = resp.body.substr(
+                        std::max<size_t>(0, (int)resp.body.find(injected) - 60),
+                        std::max<size_t>(resp.body.size() - resp.body.find(injected), 100)
+                );
+
+                if (confidence > best_conf) {
+                    best_conf = confidence;
+                    best_desc = desc.str();
+                    best_evidence = evidence;
+                }
+            }
+        }
+
+        if (flag) {
+            Finding f;
+            f.id = "finding_" + std::to_string(findings.size() + 1);
+            f.url = result.url;
+            f.category = "reflected_xss";
+            f.headers = resp_headers_map;
+            f.evidence = best_evidence;
+            f.severity = (best_conf > 0.79) ? "high" : "medium";
+            f.confidence = best_conf;
+            f.remediation_id = "xss";
+            std::ostringstream curl;
+            std::string injected_curl = url_encode(make_marker(param));
+            std::string curl_url = build_url_with_param(
+                    result.url,
+                    result.params,
+                    param,
+                    injected_curl
+            );
+            curl << "curl -i -X GET " << curl_url << "";
+            f.evidence["repro_curl"] = curl.str();
+            findings.push_back(std::move(f));
+        }
+    }
+}
 
 void VulnEngine::checkCSRF(const CrawlResult& result, std::vector<Finding>& findings) {}
 

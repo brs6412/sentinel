@@ -1,4 +1,5 @@
 #pragma once
+#include "http_client.h"
 #include <string>
 #include <vector>
 #include <schema/crawl_result.h>
@@ -13,7 +14,7 @@ public:
      * @brief Constructs a VulnEngine object
      * @param confidence_threshold Threshold for vuln findings
      */
-    VulnEngine(double confidence_threshold = 0.7);
+    VulnEngine(const HttpClient& client, double confidence_threshold = 0.7);
 
     /**
      * @brief Process a list of crawled results and generate findings
@@ -28,6 +29,7 @@ public:
     void setRiskBudget(int max_risk);
 
 private:
+    const HttpClient& client_;
     double confidenceThreshold_;
     int riskBudget_;
 

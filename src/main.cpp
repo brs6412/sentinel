@@ -1,8 +1,8 @@
 #include "core/http_client.h"
 #include "core/crawler.h"
+#include "core/vuln_engine.h"
 #include "logging/chain.h"
 #include "artifacts/artifacts.h"
-#include "artifacts/vuln_engine.h"
 #include "budget/policy.h"
 #include <schema/finding.h>
 #include <iostream>
@@ -20,10 +20,10 @@ std::string generate_run_id() {
     return oss.str();
 }
 
-int generate_findings(std::string run_id, std::vector<CrawlResult>& results) {
+int generate_findings(HttpClient& client, std::string run_id, std::vector<CrawlResult>& results) {
     logging::ChainLogger logger("./logs/scan.log.jsonl", run_id);
 
-    VulnEngine vulnEngine;
+    VulnEngine vulnEngine(client);
     std::vector<Finding> findings = vulnEngine.analyze(results);
        
     std::cout << "Generated " << findings.size() << " findings\n";
@@ -161,7 +161,7 @@ int run_scan(int argc, char** argv) {
     ofs.close();
 
     std::cout << "Generating findings...\n";
-    generate_findings(run_id, results); 
+    generate_findings(client, run_id, results); 
     
     return 0;
 }
