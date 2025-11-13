@@ -17,12 +17,6 @@
 #include <nlohmann/json.hpp>
 #include <set>
 
-// Headers to check and their optional dangerous values
-struct HeaderCheck {
-    std::string name;
-    std::string value;
-};
-
 // Cookie information to report findings on
 struct CookieFinding {
     std::string name;
@@ -187,24 +181,21 @@ static std::string build_url_with_param(
 // --- Individual checks ---
 
 void VulnEngine::checkSecurityHeaders(const CrawlResult& result, std::vector<Finding>& findings) {
-    std::vector<HeaderCheck> checks = {
-        {"x-frame-options", "allow"},
-        {"content-security-policy", ""},
-        {"x-content-type-options", ""},
-        {"strict-transport-security", ""}
+    std::vector<std::string> checks = {
+        "x-frame-options",
+        "content-security-policy",
+        "x-content-type-options",
+        "strict-transport-security"
     };
 
     for (const auto& check : checks) {
-        auto valueOpt = getHeaderValue(result, check.name);
+        auto valueOpt = getHeaderValue(result, check);
         bool flag = false;
         std::string evidence;
 
         if (!valueOpt) {
             flag = true;
-            evidence = check.name + " missing";
-        } else if (!check.value.empty() && *valueOpt == check.value) {
-            flag = true;
-            evidence = check.name + " set to dangerous value: " + *valueOpt;
+            evidence = check + " missing";
         }
 
         if (flag) {
@@ -218,7 +209,7 @@ void VulnEngine::checkSecurityHeaders(const CrawlResult& result, std::vector<Fin
                 result.headers.end()
             );
             f.evidence = {
-                {"header", check.name},
+                {"header", check},
                 {"description", evidence},
                 {"observed_value", valueOpt ? "[" + *valueOpt + "]" : "[]"}
             };
