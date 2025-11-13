@@ -1,8 +1,8 @@
 #include "core/http_client.h"
 #include "core/crawler.h"
+#include "core/vuln_engine.h"
 #include "logging/chain.h"
 #include "artifacts/artifacts.h"
-#include "artifacts/vuln_engine.h"
 #include "budget/policy.h"
 #include <schema/finding.h>
 #include <iostream>
@@ -12,6 +12,10 @@
 #include <iomanip>
 #include <sstream>
 
+/**
+ * @brief Generates a unique identifier for a program run based on current UTC datetime.
+ * @return std::string A string representing the run identifier
+ */
 std::string generate_run_id() {
     auto now = std::chrono::system_clock::now();
     auto time_t = std::chrono::system_clock::to_time_t(now);
@@ -20,17 +24,31 @@ std::string generate_run_id() {
     return oss.str();
 }
 
-int generate_findings(std::string run_id, std::vector<CrawlResult>& results) {
+/**
+ * @brief Analyzes crawl results to generate vulnerability findings and related artifacts.
+ *
+ * @param client Reference to an HTTP client used for analysis.
+ * @param run_id Identifier for the current program run.
+ * @results Vector of crawl results to be analyzed.
+ * @return int status of the analyzed findings
+ */
+int generate_findings(HttpClient& client, std::string run_id, std::vector<CrawlResult>& results) {
     logging::ChainLogger logger("./logs/scan.log.jsonl", run_id);
 
-    VulnEngine vulnEngine;
+    VulnEngine vulnEngine(client);
     std::vector<Finding> findings = vulnEngine.analyze(results);
        
     std::cout << "Generated " << findings.size() << " findings\n";
 
-    // Write results to JSON
+    // Write results to JSON and create mapping of aggregated URLs to findings
+    std::map<std::string, std::vector<std::pair<std::string, nlohmann::json>>> grouped;
     nlohmann::json out = nlohmann::json::array();
     for (auto &f : findings) {
+        const std::string& url = f.url;
+        const std::string& category = f.category;
+        const nlohmann::json& evidence = f.evidence;
+        grouped[url].push_back({category, evidence});
+
         nlohmann::json j;
         j["id"] = f.id;
         j["url"] = f.url;
@@ -67,9 +85,25 @@ int generate_findings(std::string run_id, std::vector<CrawlResult>& results) {
         findings, run_id, "./artifacts/repro_" + run_id + ".cpp")) {
         std::cout << "  ✓ repro_" << run_id << ".cpp\n";
     }
+
+//    std::cout << "Results:\n";
+//    for (const auto& [url, vec] : grouped) {
+//        std::cout << url << ":\n";
+//        for (const auto& [category, evidence] : vec) {
+//            std::cout << " " << category << ": \n";
+//            std::cout << " "  << evidence.dump(2) << "\n";
+//        }
+//    }
     return 0;
 }
 
+/**
+ * @brief Executes a full scan workflow on a specified target.
+ *
+ * @param argc Argument count from command line.
+ * @param argv Argument values from command line.
+ * @return int Returns 0 on success, 2 if required arguments are missing.
+ */
 int run_scan(int argc, char** argv) {
     std::string target;
     std::string outfile = "scan_results.jsonl";
@@ -146,11 +180,18 @@ int run_scan(int argc, char** argv) {
     ofs.close();
 
     std::cout << "Generating findings...\n";
-    generate_findings(run_id, results); 
+    generate_findings(client, run_id, results); 
     
     return 0;
 }
 
+/**
+ * @brief Verifies the integrity of a JSONL log file.
+ *
+ * @param argc Argument count from the command line.
+ * @param argv Argument values from the command line; argv[2] should be the log file path.
+ * @return int Returns 0 if verification succeeds, 1 if it fails, and 2 if usage is incorrect.
+ */
 int cmd_verify(int argc, char** argv) {
     if (argc < 3) {
         std::cerr << "Usage: sentinel verify <log-file.jsonl>\n";
@@ -169,6 +210,13 @@ int cmd_verify(int argc, char** argv) {
     }
 }
 
+/**
+ * @brief Evaluates scan budget compliance against a log file and optional policy.
+ *
+ * @param argc Argument count from the command line.
+ * @param argv Argument values from the command line; argv[2] and beyond specify policy and log file.
+ * @return int Exit code reflecting budget compliance: typically 0 for compliant, non-zero for violations, 2 for usage errors.
+ */
 int cmd_budget(int argc, char** argv) {
     std::string policy_path;
     std::string log_path;
