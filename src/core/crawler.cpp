@@ -16,6 +16,8 @@
 #include <iomanip>
 #include <vector>
 #include <string>
+#include <utility>
+#include <sstream>
 
 struct Form {
     std::string action;
@@ -385,7 +387,7 @@ std::vector<CrawlResult> Crawler::run() {
         cr.url = url;
         cr.method = "GET";
         cr.headers = std::move(resp.headers);
-        cr.source = "page";
+        cr.source = resp.body;
         cr.discovery_path = {url};
         cr.timestamp = current_utc_timestamp();
         cr.hash = sha256_hex(url);
