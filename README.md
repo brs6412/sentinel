@@ -25,3 +25,9 @@ cmake --build build
 ```bash
 ./build/sentinel --target <target_url> --out <output_dir> [--openapi file.json]
 ```
+
+### Demo
+```bash
+./build/apps/demo_server/demo_server
+./build/sentinel scan --target http://localhost:8080
+```
