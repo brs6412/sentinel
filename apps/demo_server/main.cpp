@@ -49,6 +49,7 @@ int main() {
                     "  <url><loc>http://127.0.0.1:8080/no-headers</loc></url>\n"
                     "  <url><loc>http://127.0.0.1:8080/set-cookie</loc></url>\n"
                     "  <url><loc>http://127.0.0.1:8080/secure-cookie</loc></url>\n"
+                    "  <url><loc>http://127.0.0.1:8080/secure</loc></url>\n"
                     "  <url><loc>http://127.0.0.1:8080/reflect</loc></url>\n"
                     "</urlset>\n";
     res.status = 200;
@@ -68,7 +69,8 @@ int main() {
       "<li><a href=\"/no-headers\">/no-headers</a></li>"
       "<li><a href=\"/set-cookie\">/set-cookie</a></li>"
       "<li><a href=\"/secure-cookie\">/secure-cookie</a></li>"
-      "<li><a href=\"/reflect?q=sentinel_reflection_test\">/secure-cookie</a></li>"
+      "<li><a href=\"/secure\">/secure</a></li>"
+      "<li><a href=\"/reflect?q=sentinel_reflection_test\">/reflect</a></li>"
       "</ul><p><a href=\"/robots.txt\">robots.txt</a> · <a href=\"/sitemap.xml\">sitemap.xml</a></p>"
       "</body></html>";
     res.set_header("Content-Security-Policy", "default-src 'self'");
@@ -108,6 +110,19 @@ int main() {
     res.set_header("Set-Cookie", "sid=demo123; Secure; HttpOnly; SameSite=Strict");
     res.status = 200;
     res.set_content("<p>Secure Cookie sent, no findings should generate.</p>", "text/html");
+  });
+
+  svr.Get("/secure", [](const Request& req, Response& res) {
+    maybe_delay_and_error(req, res);
+    if (res.status == 500) return;
+    res.set_header("X-Frame-Options", "DENY");
+    res.set_header("X-Content-Type-Options", "nosniff");
+    res.set_header("Content-Security-Policy", "default-src 'self'");
+    res.set_header("Strict-TransportSecurity", "max-age=63072000; includeSubDomains; preload");
+    res.set_header("Referrer-Policy", "no-referrer");
+    res.set_header("Set-Cookie", "session=secure123;Path=/;Secure;HttpOnly;SameSite=Strict");
+    res.status = 200;
+    res.set_content("{\"status\":\"secure\",\"message\":\"All security headers configured\"}", "application/json");
   });
 
   svr.Get("/reflect", [](const Request& req, Response& res) {

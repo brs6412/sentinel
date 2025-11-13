@@ -9,7 +9,7 @@ namespace budget {
 /**
  * @file policy.h
  * @brief Risk budget evaluation for security findings
- * 
+ *
  * Assigns scores to findings based on their category and checks if the
  * total risk exceeds warning or blocking thresholds. Used to gate CI/CD
  * pipelines based on scan results.
@@ -22,11 +22,11 @@ namespace budget {
 struct Policy {
     // Score per finding category
     std::map<std::string, int> category_scores;
-    
+
     // Thresholds
     int warn_threshold;
     int block_threshold;
-    
+
     /**
      * Load policy from a YAML or JSON file
      * @policy.h (21)
@@ -34,7 +34,7 @@ struct Policy {
      * @return Loaded policy
      */
     static Policy load(const std::string& policy_path);
-    
+
     /**
      * Get a default policy with reasonable scores
      * @policy.h (24)
@@ -53,19 +53,19 @@ struct BudgetResult {
     std::map<std::string, int> category_scores;
     bool exceeds_warn;
     bool exceeds_block;
-    
+
     enum class Status {
         PASS,
         WARN,
         BLOCK
     };
-    
+
     Status status() const {
         if (exceeds_block) return Status::BLOCK;
         if (exceeds_warn) return Status::WARN;
         return Status::PASS;
     }
-    
+
     int exit_code() const {
         switch (status()) {
             case Status::PASS:  return 0;
@@ -74,7 +74,7 @@ struct BudgetResult {
         }
         return 0;
     }
-    
+
     std::string status_string() const {
         switch (status()) {
             case Status::PASS:  return "PASS";
@@ -97,7 +97,7 @@ public:
      * @param policy Risk policy to use for scoring
      */
     explicit BudgetEvaluator(const Policy& policy);
-    
+
     /**
      * Evaluate findings from a log file
      * @policy.h (84)
@@ -105,7 +105,7 @@ public:
      * @return Evaluation result with scores and status
      */
     BudgetResult evaluate(const std::string& log_path) const;
-    
+
     /**
      * Evaluate findings from already-parsed JSON objects
      * @policy.h (91)
@@ -113,7 +113,7 @@ public:
      * @return Evaluation result with scores and status
      */
     BudgetResult evaluate_findings(const std::vector<nlohmann::json>& findings) const;
-    
+
     /**
      * Print a human-readable budget report
      * @policy.h (97)
