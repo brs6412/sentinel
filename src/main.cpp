@@ -37,7 +37,7 @@ int generate_findings(HttpClient& client, std::string run_id, std::vector<CrawlR
 
     VulnEngine vulnEngine(client);
     std::vector<Finding> findings = vulnEngine.analyze(results);
-       
+
     std::cout << "Generated " << findings.size() << " findings\n";
 
     // Write results to JSON and create mapping of aggregated URLs to findings
@@ -70,16 +70,16 @@ int generate_findings(HttpClient& client, std::string run_id, std::vector<CrawlR
     ofs << out.dump(2);
     ofs.close();
 
-   
+
     // Generate artifacts
     std::cout << "Generating reproduction artifacts...\n";
-    
+
     // Generate repro.sh
     if (artifacts::ArtifactGenerator::generate_repro_script(
         findings, "./artifacts/repro.sh")) {
         std::cout << "  ✓ repro.sh\n";
     }
-    
+
     // Generate Catch2 tests
     if (artifacts::ArtifactGenerator::generate_catch2_tests(
         findings, run_id, "./artifacts/repro_" + run_id + ".cpp")) {
@@ -113,11 +113,11 @@ int run_scan(int argc, char** argv) {
         if (a == "--target" && i + 1 < argc) {
             target = argv[++i];
             continue;
-        } 
+        }
         if (a == "--out" && i + 1 < argc) {
             outfile = argv[++i];
             continue;
-        } 
+        }
         if (a == "--openapi" && i + 1 < argc) {
             openapi = argv[++i];
             continue;
@@ -180,8 +180,8 @@ int run_scan(int argc, char** argv) {
     ofs.close();
 
     std::cout << "Generating findings...\n";
-    generate_findings(client, run_id, results); 
-    
+    generate_findings(client, run_id, results);
+
     return 0;
 }
 
@@ -197,11 +197,11 @@ int cmd_verify(int argc, char** argv) {
         std::cerr << "Usage: sentinel verify <log-file.jsonl>\n";
         return 2;
     }
-    
+
     std::string log_path = argv[2];
-    
+
     std::cout << "Verifying log: " << log_path << "\n";
-    
+
     if (logging::ChainLogger::verify(log_path)) {
         return 0;
     } else {
@@ -220,7 +220,7 @@ int cmd_verify(int argc, char** argv) {
 int cmd_budget(int argc, char** argv) {
     std::string policy_path;
     std::string log_path;
-    
+
     for (int i = 2; i < argc; i++) {
         std::string arg = argv[i];
         if (arg == "--policy" && i+1 < argc) {
@@ -229,12 +229,12 @@ int cmd_budget(int argc, char** argv) {
             log_path = arg;
         }
     }
-    
+
     if (log_path.empty()) {
         std::cerr << "Usage: sentinel budget [--policy policy.yml] <log-file.jsonl>\n";
         return 2;
     }
-    
+
     // Load policy
     budget::Policy policy;
     if (!policy_path.empty()) {
@@ -243,14 +243,14 @@ int cmd_budget(int argc, char** argv) {
     } else {
         std::cout << "Using default policy\n";
     }
-    
+
     // Evaluate budget
     budget::BudgetEvaluator evaluator(policy);
     auto result = evaluator.evaluate(log_path);
-    
+
     // Print report
     budget::BudgetEvaluator::print_report(result);
-    
+
     // Return appropriate exit code
     return result.exit_code();
 }
@@ -263,7 +263,7 @@ int main(int argc, char** argv) {
         std::cerr << "  sentinel budget [--policy FILE] <log-file.jsonl>\n";
         return 2;
     }
-    
+
     std::string command = argv[1];
 
     if (command == "scan") {
