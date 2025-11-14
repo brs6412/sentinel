@@ -35,8 +35,8 @@ static int parse_yaml_int(const std::string& yaml, const std::string& key, int d
             return std::stoi(m[1].str());
         } catch (...) {
             return defv;
-        }
-    }
+                }
+            }
     return defv;
 }
 
@@ -53,9 +53,9 @@ Policy Policy::load(const std::string& policy_path) {
                        std::istreambuf_iterator<char>());
     
     Policy p;
-    
+            
     // Try parsing as JSON first
-    try {
+            try {
         json j = json::parse(content);
         
         // Load category scores

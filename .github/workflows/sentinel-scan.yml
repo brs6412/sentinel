@@ -13,11 +13,11 @@ on:
 jobs:
   security-scan:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
     - name: Set up test environment
       run: |
         # Start your test application if docker-compose file exists
@@ -28,7 +28,7 @@ jobs:
         else
           echo "No docker-compose.yml found in tests/fixtures/, skipping test environment setup"
         fi
-    
+
     - name: Install dependencies
       run: |
         sudo apt-get update
@@ -37,19 +37,19 @@ jobs:
           libssl-dev \
           nlohmann-json3-dev \
           libgumbo-dev
-    
+
     - name: Build Sentinel
       run: |
         mkdir -p build
         cd build
         cmake .. -DCMAKE_BUILD_TYPE=Release
         make -j$(nproc)
-    
+
     - name: Run LLM tests
       run: |
         cd build
         ctest -R "test_ollama_client|test_poe_renderer" --output-on-failure
-    
+
     - name: Run security scan
       id: scan
       run: |
@@ -57,11 +57,11 @@ jobs:
           --target http://localhost:8081 \
           --out artifacts/
       continue-on-error: true
-    
+
     - name: Verify log integrity
       run: |
         ./build/sentinel verify artifacts/scan.log.jsonl
-    
+
     - name: Evaluate risk budget
       id: budget
       run: |
@@ -69,7 +69,7 @@ jobs:
           --policy ci-policy.yml \
           artifacts/scan.log.jsonl
       continue-on-error: true
-    
+
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       if: always()
@@ -78,7 +78,7 @@ jobs:
         path: |
           artifacts/
         retention-days: 30
-    
+
     - name: Comment PR with results
       # Skip commenting on forked pull requests because default GITHUB_TOKEN
       # lacks permission to comment on the base repository issues.
@@ -89,31 +89,31 @@ jobs:
       with:
         script: |
           const fs = require('fs');
-          
+
           // Double-check: skip if this is a forked PR (even if condition passed)
           const headRepo = context.payload.pull_request?.head?.repo?.full_name;
           const baseRepo = context.repo.owner + '/' + context.repo.repo;
           const isFork = headRepo && headRepo !== baseRepo;
-          
+
           if (isFork) {
             console.log(`Skipping comment: PR is from fork (${headRepo} != ${baseRepo})`);
             process.exit(0);
           }
-          
+
           // Read scan results
           let summary = '## 🔍 Sentinel Security Scan Results\n\n';
-          
+
           try {
             const logContent = fs.readFileSync('artifacts/scan.log.jsonl', 'utf8');
             const entries = logContent.trim().split('\n')
               .filter(line => line.length > 0)
               .map(line => JSON.parse(line));
-            
+
             const findings = entries.filter(e => e.event_type === 'finding_recorded');
-            
+
             summary += `- **Total Findings**: ${findings.length}\n`;
             summary += `- **Scan Status**: ${{ steps.budget.outcome }}\n\n`;
-            
+
             if (findings.length > 0) {
               summary += '### Findings by Category\n\n';
               const categories = {};
@@ -121,18 +121,18 @@ jobs:
                 const cat = f.payload.category || 'unknown';
                 categories[cat] = (categories[cat] || 0) + 1;
               });
-              
+
               for (const [cat, count] of Object.entries(categories)) {
                 summary += `- **${cat}**: ${count}\n`;
               }
             }
-            
+
             summary += '\n📦 Full scan artifacts available in workflow run.';
           } catch (err) {
             summary += '⚠️ Could not parse scan results\n';
             summary += `Error: ${err.message}`;
           }
-          
+
           // Wrap API call in try-catch to handle permission errors gracefully
           try {
             await github.rest.issues.createComment({
@@ -150,13 +150,13 @@ jobs:
             // Re-throw other errors
             throw error;
           }
-    
+
     - name: Check budget status
       if: steps.budget.outcome == 'failure'
       run: |
         echo "::error::Security scan failed risk budget check"
         exit 1
-    
+
     - name: Cleanup test environment
       if: always()
       run: |
