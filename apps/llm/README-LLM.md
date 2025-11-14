@@ -17,7 +17,7 @@ flowchart TD
     StructuredPoE[Structured PoE JSON<br/>summary, why, fix, test, tags]
     TestFiles[Test Files<br/>out/tests/*.md]
     ChainLog[Chain Log<br/>out/reports/sentinel_chain.jsonl]
-    
+
     Finding -->|Finding JSON| PromptBuilder
     PromptBuilder -->|Formatted Prompt| OllamaClient
     OllamaClient -->|HTTP POST /api/generate| OllamaServer
@@ -26,7 +26,7 @@ flowchart TD
     PoERenderer -->|Extract Fields| StructuredPoE
     StructuredPoE -->|Generate| TestFiles
     StructuredPoE -->|Log Finding| ChainLog
-    
+
     style Finding fill:#e1f5ff
     style PromptBuilder fill:#fff4e1
     style OllamaClient fill:#e8f5e9

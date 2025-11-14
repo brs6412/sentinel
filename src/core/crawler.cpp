@@ -106,7 +106,7 @@ std::vector<std::pair<std::string, std::string>> parse_query(const std::string& 
         start = amp + 1;
     }
     return params;
-}
+    }
 
 // Helper function to check if URL path segment consists of digits
 bool is_numeric_segment(const std::string& segment) {
@@ -184,7 +184,7 @@ std::string Crawler::origin_of(const std::string& url) const {
     if (port) curl_free(port);
     curl_url_cleanup(h);
     return origin;
-}
+    }
 
 /// Resolve href into an absolute URL using base as reference.
 std::string Crawler::normalize_url(const std::string& base, const std::string& href) const {
@@ -272,7 +272,7 @@ static void extract_forms(
         GumboNode* child = static_cast<GumboNode*>(children->data[i]);
         if (child && child-> type == GUMBO_NODE_ELEMENT) {
             extract_forms(child, base, out_forms);
-        }
+}
     }
 }
 
@@ -303,8 +303,8 @@ void Crawler::parse_html(
                 std::string norm = normalize_url(base_url, hrefs);
                 if (!norm.empty()) {
                     out_links.insert(norm);
-                }
-            }
+        }
+    }
         } else if (node->v.element.tag == GUMBO_TAG_FORM) {
             extract_forms(node, base_url, out_forms);
         }
@@ -385,7 +385,7 @@ bool Crawler::robots_allows(const std::string& origin, const std::string& path) 
         }
     }
     return true;
-}
+    }
 
 /// Perform web crawl process starting from seeds_.
 std::vector<CrawlResult> Crawler::run() {
@@ -437,7 +437,7 @@ std::vector<CrawlResult> Crawler::run() {
         if (opts_.respect_robots) {
             std::string origin = origin_of(url);
             if (!robots_allows(origin, path)) continue;
-        }
+            }
 
         HttpRequest req;
         req.method = "GET";

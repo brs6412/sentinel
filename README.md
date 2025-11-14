@@ -1,6 +1,6 @@
 # Sentinel
 
-Sentinel is a Dynamic Application Security Testing (DAST) system for web applications and APIs. It detects and reproduces vulnerabilities with verifiable proofs, CI integration, and optional LLM-assisted payload generation.
+Sentinel is a Dynamic Application Security Testing (DAST) system for web applications and APIs. It detects and reproduces vulnerabilities with verifiable proofs, CI integration, and LLM-assisted payload generation.
 
 ## Architecture
 
@@ -17,7 +17,7 @@ flowchart TD
     Findings[findings.jsonl]
     ScanLog[scanlog.jsonl<br/>Tamper-Evident Chain Log]
     CI[CI / Reporting Layer<br/>Reporting pipeline]
-    
+
     Target -->|Crawl| Crawler
     Crawler -->|Outputs| Inputs
     Inputs -.->|Reference| LLM
@@ -27,7 +27,7 @@ flowchart TD
     Detection -->|Vulnerability Data| Findings
     Detection -->|Audit Log| ScanLog
     Findings -->|Report| CI
-    
+
     style Target fill:#e1f5ff
     style Crawler fill:#fff4e1
     style Inputs fill:#f0f0f0
