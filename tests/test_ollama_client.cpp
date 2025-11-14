@@ -36,17 +36,6 @@ public:
     }
 
     int start() {
-        // Find available port by trying to bind
-        Server test_server;
-        for (port_ = 18000; port_ < 19000; ++port_) {
-            if (test_server.bind_to_port("127.0.0.1", port_)) {
-                break;
-            }
-        }
-        if (port_ >= 19000) {
-            return -1;
-        }
-
         server_ = std::make_unique<Server>();
 
         // Setup /api/tags endpoint
@@ -88,8 +77,9 @@ public:
             }
         });
 
-        // Bind to port first
-        if (!server_->bind_to_port("127.0.0.1", port_)) {
+        // Bind to any available port on localhost
+        port_ = server_->bind_to_any_port("127.0.0.1");
+        if (port_ <= 0) {
             return -1;
         }
 
