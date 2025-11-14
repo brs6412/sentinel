@@ -88,22 +88,33 @@ public:
         });
 
         // Start server in background thread
+        // Note: listen() is blocking, so we start it in a thread and verify readiness by connecting
         thread_ = std::make_unique<std::thread>([this]() {
             server_->listen("127.0.0.1", port_);
         });
 
-        // Wait for server to start and verify it's ready
+        // Wait for server to be ready by attempting connections
+        // Give it up to 5 seconds to start
+        bool server_ready = false;
         for (int i = 0; i < 50; ++i) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
             httplib::Client test_client("127.0.0.1", port_);
-            test_client.set_connection_timeout(1, 0);
-            test_client.set_read_timeout(1, 0);
+            test_client.set_connection_timeout(2, 0);
+            test_client.set_read_timeout(2, 0);
             if (auto res = test_client.Get("/api/tags")) {
                 if (res->status == 200) {
-                    return port_;
+                    server_ready = true;
+                    break;
                 }
             }
         }
+        
+        if (!server_ready) {
+            // Server didn't start in time - this is a test infrastructure issue
+            // Return port anyway so test can fail with a clear error
+            return port_;
+        }
+        
         return port_;
     }
 
@@ -460,4 +471,5 @@ TEST_CASE("OllamaClient Generate handles 404 status", "[llm]") {
 
     mock.stop();
 }
+
 
