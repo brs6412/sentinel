@@ -2,6 +2,65 @@
 
 Minimal Ollama client integration for Sentinel security scanner.
 
+## Architecture
+
+The following diagram illustrates how the LLM module works within Sentinel:
+
+```mermaid
+flowchart TD
+    Finding[Security Finding<br/>Category, URL, Evidence]
+    PromptBuilder[Prompt Templates<br/>BuildPoEPrompt<br/>BuildStructuredPoEPrompt]
+    OllamaClient[OllamaClient<br/>HTTP Client]
+    OllamaServer[Ollama Server<br/>Local/Remote LLM]
+    LLMResponse[LLM Response<br/>JSON/Text]
+    PoERenderer[PoE Renderer<br/>Extract & Parse]
+    StructuredPoE[Structured PoE JSON<br/>summary, why, fix, test, tags]
+    TestFiles[Test Files<br/>out/tests/*.md]
+    ChainLog[Chain Log<br/>out/reports/sentinel_chain.jsonl]
+    
+    Finding -->|Finding JSON| PromptBuilder
+    PromptBuilder -->|Formatted Prompt| OllamaClient
+    OllamaClient -->|HTTP POST /api/generate| OllamaServer
+    OllamaServer -->|JSON Response| LLMResponse
+    LLMResponse -->|Parse Response| PoERenderer
+    PoERenderer -->|Extract Fields| StructuredPoE
+    StructuredPoE -->|Generate| TestFiles
+    StructuredPoE -->|Log Finding| ChainLog
+    
+    style Finding fill:#e1f5ff
+    style PromptBuilder fill:#fff4e1
+    style OllamaClient fill:#e8f5e9
+    style OllamaServer fill:#f3e5f5
+    style LLMResponse fill:#f0f0f0
+    style PoERenderer fill:#fff3e0
+    style StructuredPoE fill:#e3f2fd
+    style TestFiles fill:#c8e6c9
+    style ChainLog fill:#f3e5f5
+```
+
+**How It Works:**
+
+1. **Security Finding** - Sentinel's vulnerability engine detects an issue and creates a finding with category, URL, method, and evidence
+2. **Prompt Templates** - The finding is formatted into a structured prompt using `BuildStructuredPoEPrompt()` which instructs the LLM to generate specific JSON fields
+3. **OllamaClient** - Sends an HTTP POST request to the Ollama server with the model name and prompt
+4. **Ollama Server** - Processes the prompt using the specified LLM model (e.g., llama3.2:3b-instruct-q4_0) and generates a response
+5. **LLM Response** - Returns JSON or text response containing the PoE explanation
+6. **PoE Renderer** - Parses the response and extracts structured fields, handling various response formats (nested JSON, plain text, etc.)
+7. **Structured PoE** - Produces a JSON object with:
+   - `summary`: Brief description of the finding
+   - `why`: Explanation of why it's a vulnerability
+   - `fix`: Remediation steps
+   - `test`: Test commands or checklist
+   - `tags`: CWE and OWASP classifications
+8. **Test Files** - The structured PoE is used to generate markdown test files in `out/tests/`
+9. **Chain Log** - The finding and PoE data are logged to the tamper-evident chain log
+
+**Key Features:**
+- **Adaptive Timeouts**: Connection (5s), Write (30s), Read (max(timeout, 10s))
+- **Error Handling**: Clean exceptions for network failures, timeouts, and HTTP errors
+- **Retry Logic**: Single retry on connection failures only
+- **Response Parsing**: Handles nested JSON, plain text, and various response formats
+
 ## Quick Start
 
 ### 1. Install Ollama
