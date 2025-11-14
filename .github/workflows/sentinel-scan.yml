@@ -80,7 +80,9 @@ jobs:
         retention-days: 30
     
     - name: Comment PR with results
-      if: github.event_name == 'pull_request'
+      # Skip commenting on forked pull requests because default GITHUB_TOKEN
+      # lacks permission to comment on the base repository issues.
+      if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
       uses: actions/github-script@v6
       with:
         script: |
