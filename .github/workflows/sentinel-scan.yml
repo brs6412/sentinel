@@ -84,10 +84,21 @@ jobs:
       # lacks permission to comment on the base repository issues.
       # Only comment on PRs from the same repository (not forks)
       if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+      continue-on-error: true
       uses: actions/github-script@v6
       with:
         script: |
           const fs = require('fs');
+          
+          // Double-check: skip if this is a forked PR (even if condition passed)
+          const headRepo = context.payload.pull_request?.head?.repo?.full_name;
+          const baseRepo = context.repo.owner + '/' + context.repo.repo;
+          const isFork = headRepo && headRepo !== baseRepo;
+          
+          if (isFork) {
+            console.log(`Skipping comment: PR is from fork (${headRepo} != ${baseRepo})`);
+            process.exit(0);
+          }
           
           // Read scan results
           let summary = '## 🔍 Sentinel Security Scan Results\n\n';
@@ -122,12 +133,23 @@ jobs:
             summary += `Error: ${err.message}`;
           }
           
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: summary
-          });
+          // Wrap API call in try-catch to handle permission errors gracefully
+          try {
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
+          } catch (error) {
+            // Silently skip if we don't have permissions (403/404 = forked PR or no access)
+            if (error.status === 403 || error.status === 404) {
+              console.log(`Skipping comment: insufficient permissions (HTTP ${error.status})`);
+              process.exit(0);
+            }
+            // Re-throw other errors
+            throw error;
+          }
     
     - name: Check budget status
       if: steps.budget.outcome == 'failure'
