@@ -16,6 +16,7 @@
 #include <random>
 #include <cstdlib>
 #include <memory>
+#include <atomic>
 
 using namespace httplib;
 
@@ -35,7 +36,7 @@ public:
     }
 
     int start() {
-        // Find available port
+        // Find available port by trying to bind
         Server test_server;
         for (port_ = 18000; port_ < 19000; ++port_) {
             if (test_server.bind_to_port("127.0.0.1", port_)) {
@@ -87,32 +88,53 @@ public:
             }
         });
 
-        // Start server in background thread
-        // Note: listen() is blocking, so we start it in a thread and verify readiness by connecting
-        thread_ = std::make_unique<std::thread>([this]() {
-            server_->listen("127.0.0.1", port_);
+        // Bind to port first
+        if (!server_->bind_to_port("127.0.0.1", port_)) {
+            return -1;
+        }
+
+        // Start server in background thread using listen_after_bind
+        // This is non-blocking and sets is_running() when ready
+        std::atomic<bool> server_started{false};
+        std::atomic<bool> server_failed{false};
+        
+        thread_ = std::make_unique<std::thread>([this, &server_started, &server_failed]() {
+            if (server_->listen_after_bind()) {
+                server_started = true;
+            } else {
+                server_failed = true;
+            }
         });
 
-        // Wait for server to be ready by attempting connections
-        // Give it up to 5 seconds to start
+        // Wait for server to start - check is_running() and connection
+        // Give it up to 10 seconds to start
         bool server_ready = false;
-        for (int i = 0; i < 50; ++i) {
+        for (int i = 0; i < 100; ++i) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            httplib::Client test_client("127.0.0.1", port_);
-            test_client.set_connection_timeout(2, 0);
-            test_client.set_read_timeout(2, 0);
-            if (auto res = test_client.Get("/api/tags")) {
-                if (res->status == 200) {
-                    server_ready = true;
-                    break;
+            
+            // Check if server failed to start
+            if (server_failed.load()) {
+                return -1;
+            }
+            
+            // Check if server is running
+            if (server_->is_running()) {
+                // Verify with actual connection
+                httplib::Client test_client("127.0.0.1", port_);
+                test_client.set_connection_timeout(1, 0);
+                test_client.set_read_timeout(1, 0);
+                if (auto res = test_client.Get("/api/tags")) {
+                    if (res->status == 200) {
+                        server_ready = true;
+                        break;
+                    }
                 }
             }
         }
         
         if (!server_ready) {
-            // Server didn't start in time - this is a test infrastructure issue
-            // Return port anyway so test can fail with a clear error
-            return port_;
+            // Server didn't start in time
+            return -1;
         }
         
         return port_;
