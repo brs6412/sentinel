@@ -22,9 +22,9 @@ jobs:
       run: |
         # Start your test application if docker-compose file exists
         if [ -f tests/fixtures/docker-compose.yml ]; then
-          docker compose -f tests/fixtures/docker-compose.yml up -d
-          # Wait for services to be ready
-          sleep 10
+        docker compose -f tests/fixtures/docker-compose.yml up -d
+        # Wait for services to be ready
+        sleep 10
         else
           echo "No docker-compose.yml found in tests/fixtures/, skipping test environment setup"
         fi
@@ -82,6 +82,7 @@ jobs:
     - name: Comment PR with results
       # Skip commenting on forked pull requests because default GITHUB_TOKEN
       # lacks permission to comment on the base repository issues.
+      # Only comment on PRs from the same repository (not forks)
       if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
       uses: actions/github-script@v6
       with:
@@ -139,7 +140,7 @@ jobs:
       run: |
         # Cleanup test environment if docker-compose file exists
         if [ -f tests/fixtures/docker-compose.yml ]; then
-          docker compose -f tests/fixtures/docker-compose.yml down
+        docker compose -f tests/fixtures/docker-compose.yml down
         else
           echo "No docker-compose.yml found in tests/fixtures/, skipping cleanup"
         fi
