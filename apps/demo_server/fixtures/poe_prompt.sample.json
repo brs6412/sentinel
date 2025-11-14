@@ -1,0 +1,21 @@
+{
+  "id": "finding_001",
+  "url": "https://example.com/api/v1/users",
+  "category": "missing_security_header",
+  "method": "GET",
+  "headers": {
+    "Accept": "application/json",
+    "User-Agent": "SentinelProbe/0.1"
+  },
+  "body": "",
+  "evidence": {
+    "header_checked": "X-Frame-Options",
+    "observed_value": null,
+    "request": "GET /api/v1/users HTTP/1.1\r\nHost: example.com\r\nAccept: application/json\r\n\r\n",
+    "response_snippet": "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"users\":[]}"
+  },
+  "severity": "medium",
+  "confidence": 0.95,
+  "remediation_id": "add-x-frame-options"
+}
+

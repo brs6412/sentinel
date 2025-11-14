@@ -1,15 +1,24 @@
-# Build outputs
-build/
+# Build artifacts
+/build/
+/build.test/
 *.o
 *.a
 *.so
 
-# Runtime artifacts
+# Caches
+/.cache/
+
+# Scanner outputs & artifacts
 /out/
+/runlogs/
 /artifacts/
 *.log
 *.jsonl
 .venv/
+
+# CTest temporary files
+/Testing/
+/Testing/Temporary/
 
 # IDE files
 .vscode/

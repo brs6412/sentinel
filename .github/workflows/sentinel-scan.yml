@@ -41,6 +41,11 @@ jobs:
         cmake .. -DCMAKE_BUILD_TYPE=Release
         make -j$(nproc)
     
+    - name: Run LLM tests
+      run: |
+        cd build
+        ctest -R "test_ollama_client|test_poe_renderer" --output-on-failure
+    
     - name: Run security scan
       id: scan
       run: |

@@ -1,14 +1,21 @@
 # Sentinel risk policy configuration
-thresholds:
-  # If the reporter’s total computed risk exceeds this, it should exit(1).
-  block_score: 0.75
+risk_budget:
+  max_points: 10
+  weights:
+    low: 1
+    medium: 2
+    high: 4
+    critical: 8
 
-# Per-vuln risk weights
-scores:
-  missing_headers: 0.40
-  cookie_flags:   0.50
+# Category-specific scores (used if severity-based weights aren't available)
+category_scores:
+  missing_security_header: 2
+  unsafe_cookie: 1
+  cors_misconfiguration: 3
+  reflected_xss: 5
+  csrf: 4
+  idor: 4
 
-# Severities that the reporter/HTML can show
-severities:
-  missing_headers: medium
-  cookie_flags:    high
+# Thresholds
+warn_threshold: 3
+block_threshold: 5

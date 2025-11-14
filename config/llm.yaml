@@ -1,0 +1,20 @@
+# LLM configuration for Sentinel
+# Used by OllamaClient for generating security findings and proof-of-exploit scripts
+
+# Default model name (must be available via `ollama list`)
+# Common options: llama3.1, llama3.2, mistral, codellama, etc.
+model: "llama3.1"
+
+# Temperature for generation (0.0 = deterministic, higher = more creative)
+# Use 0 for reproducible security findings
+temperature: 0
+
+# Request timeout in milliseconds
+timeout_ms: 5000
+
+# Ollama server host URL
+# Can be overridden via OLLAMA_HOST environment variable
+# Default: http://127.0.0.1:11434
+# Example: http://192.168.1.100:11434
+# OLLAMA_HOST: set via environment variable or defaults to http://127.0.0.1:11434
+

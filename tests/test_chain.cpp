@@ -1,6 +1,10 @@
 /**
  * @file test_chain.cpp
  * @brief Unit tests for hash-chained logger
+ * 
+ * Tests the append-only logger that chains entries together with hashes.
+ * Verifies that tampering is detected and that the chain continues correctly
+ * across multiple logger instances.
  */
 
 #define CATCH_CONFIG_MAIN
@@ -12,6 +16,10 @@
 using namespace logging;
 namespace fs = std::filesystem;
 
+/**
+ * Test basic log entry creation and verification
+ * @test_chain.cpp (23-130)
+ */
 TEST_CASE("ChainLogger creates valid log entries", "[chain]") {
     std::string test_log = "test_log.jsonl";
     
@@ -121,6 +129,10 @@ TEST_CASE("ChainLogger creates valid log entries", "[chain]") {
     }
 }
 
+/**
+ * Test that LogEntry can be serialized to JSON and back
+ * @test_chain.cpp (136-159)
+ */
 TEST_CASE("LogEntry JSON serialization", "[chain]") {
     LogEntry entry;
     entry.event_type = "test";

@@ -1,7 +1,4 @@
-/**
- * @file crawler.cpp
- * @brief Web crawler using gumbo and http_client
- */
+// Web crawler using gumbo and http_client
 
 #include "crawler.h"
 #include <gumbo.h>
@@ -109,7 +106,7 @@ std::vector<std::pair<std::string, std::string>> parse_query(const std::string& 
         start = amp + 1;
     }
     return params;
-}
+    }
 
 // Helper function to check if URL path segment consists of digits
 bool is_numeric_segment(const std::string& segment) {
@@ -148,9 +145,9 @@ bool Crawler::load_openapi_file(const std::string& path) {
 }
 
 /// Assemble full URL from components.
-static std::string join_url( const std::string& scheme, 
-    const std::string& hostport, 
-    const std::string& resource_path 
+static std::string join_url( const std::string& scheme,
+    const std::string& hostport,
+    const std::string& resource_path
 ) {
     std::string out = scheme + "://" + hostport;
     if (!resource_path.empty() && resource_path.front() != '/') out += '/';
@@ -163,9 +160,9 @@ std::string Crawler::origin_of(const std::string& url) const {
     CURLU* h = curl_url();
     if (!h) return {};
     CURLUcode rc = curl_url_set(h, CURLUPART_URL, url.c_str(), 0);
-    if (rc != CURLUE_OK) { 
-        curl_url_cleanup(h); 
-        return {}; 
+    if (rc != CURLUE_OK) {
+        curl_url_cleanup(h);
+        return {};
     }
     char* scheme = nullptr;
     char* host = nullptr;
@@ -187,13 +184,13 @@ std::string Crawler::origin_of(const std::string& url) const {
     if (port) curl_free(port);
     curl_url_cleanup(h);
     return origin;
-}
+    }
 
 /// Resolve href into an absolute URL using base as reference.
 std::string Crawler::normalize_url(const std::string& base, const std::string& href) const {
     if (href.empty()) return {};
-    
-    // Detect absolute URLs (http://, https://, ...) 
+
+    // Detect absolute URLs (http://, https://, ...)
     static const std::regex abs_re(R"(^[a-zA-Z][a-zA-Z0-9+\-.]*://)");
     if (std::regex_search(href, abs_re)) {
         // Remove fragment
@@ -216,8 +213,8 @@ std::string Crawler::normalize_url(const std::string& base, const std::string& h
 
 /// Populate form vector via recursive traversal of Gumbo HTML DOM tree.
 static void extract_forms(
-    GumboNode* node, 
-    const std::string& base, 
+    GumboNode* node,
+    const std::string& base,
     std::vector<Form>& out_forms
 ) {
     if (node->type != GUMBO_NODE_ELEMENT) return;
@@ -238,8 +235,8 @@ static void extract_forms(
             stack.pop_back();
             if (n->type != GUMBO_NODE_ELEMENT) continue;
             if (
-                n->v.element.tag == GUMBO_TAG_INPUT    || 
-                n->v.element.tag == GUMBO_TAG_TEXTAREA || 
+                n->v.element.tag == GUMBO_TAG_INPUT    ||
+                n->v.element.tag == GUMBO_TAG_TEXTAREA ||
                 n->v.element.tag == GUMBO_TAG_SELECT
             ) {
                 // Ignore nameless inputs
@@ -248,7 +245,7 @@ static void extract_forms(
                     std::string name = name_attr->value;
                     std::string value;
                     GumboAttribute* val_attr = gumbo_get_attribute(
-                        &n->v.element.attributes, 
+                        &n->v.element.attributes,
                         "value"
                     );
                     if (val_attr) {
@@ -268,21 +265,21 @@ static void extract_forms(
         }
         out_forms.push_back(std::move(form));
     }
-    
+
     // Recurse on non-form children
     GumboVector* children = &node->v.element.children;
     for (unsigned int i = 0; i < children->length; i++) {
         GumboNode* child = static_cast<GumboNode*>(children->data[i]);
         if (child && child-> type == GUMBO_NODE_ELEMENT) {
             extract_forms(child, base, out_forms);
-        }
+}
     }
 }
 
 /// Parse HTML document and extract <a> links and <form> elements.
 void Crawler::parse_html(
-    const std::string& base_url, 
-    const std::string& body, 
+    const std::string& base_url,
+    const std::string& body,
     std::set<std::string>& out_links,
     std::vector<Form>& out_forms
 ) const {
@@ -306,8 +303,8 @@ void Crawler::parse_html(
                 std::string norm = normalize_url(base_url, hrefs);
                 if (!norm.empty()) {
                     out_links.insert(norm);
-                }
-            }
+        }
+    }
         } else if (node->v.element.tag == GUMBO_TAG_FORM) {
             extract_forms(node, base_url, out_forms);
         }
@@ -323,7 +320,7 @@ void Crawler::parse_html(
     }
 
     gumbo_destroy_output(&kGumboDefaultOptions, output);
-    
+
     // Every form action should be an absolute URL
     for (auto& f : out_forms) {
         if (!f.action.empty()) {
@@ -364,10 +361,10 @@ bool Crawler::robots_allows(const std::string& origin, const std::string& path) 
 
             // Trim whitespace
             size_t start = 0;
-            while (start < p.size() && isspace((unsigned char)p[start])) 
+            while (start < p.size() && isspace((unsigned char)p[start]))
                 start++;
             size_t end = p.size();
-            while (end > start && isspace((unsigned char)p[end - 1])) 
+            while (end > start && isspace((unsigned char)p[end - 1]))
                 end--;
 
             // Store disallowed path in vector
@@ -388,7 +385,7 @@ bool Crawler::robots_allows(const std::string& origin, const std::string& path) 
         }
     }
     return true;
-}
+    }
 
 /// Perform web crawl process starting from seeds_.
 std::vector<CrawlResult> Crawler::run() {
@@ -440,7 +437,7 @@ std::vector<CrawlResult> Crawler::run() {
         if (opts_.respect_robots) {
             std::string origin = origin_of(url);
             if (!robots_allows(origin, path)) continue;
-        }
+            }
 
         HttpRequest req;
         req.method = "GET";

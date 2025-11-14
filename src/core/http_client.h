@@ -3,9 +3,10 @@
 #include <map>
 #include <vector>
 
-/**
- * @brief Represents an HTTP request.
- */
+// HTTP client wrapper around libcurl.
+// Provides a simple interface for making HTTP requests with configurable
+// timeouts, redirect handling, and custom headers.
+
 struct HttpRequest {
     std::string method = "GET";
     std::string url;
@@ -13,9 +14,6 @@ struct HttpRequest {
     std::string body;
 };
 
-/**
- * @brief Stores HTTP response returned by client.
- */
 struct HttpResponse {
     long status = 0;
     std::vector<std::pair<std::string, std::string>> headers;
@@ -26,14 +24,8 @@ struct HttpResponse {
     size_t body_bytes = 0;
 };
 
-/**
- * @brief HTTP client class using libcurl.
- */
 class HttpClient {
 public:
-    /**
-     * @brief Configuration opts for client behavior.
-     */
     struct Options {
         long timeout_seconds;
         long connect_timeout_seconds;
@@ -42,7 +34,6 @@ public:
         std::string user_agent;
         bool accept_encoding;
 
-        /// Default constructor with defaults.
         Options()
             : timeout_seconds(15),
               connect_timeout_seconds(5),
@@ -54,19 +45,18 @@ public:
     };
 
     /**
-     * @brief Construct an HttpClient with optional configuration.
-     * @param opts Configuration options
+     * @brief Create an HTTP client with the given options
+     * @param opts Client configuration (timeouts, redirects, etc.)
      */
     explicit HttpClient(const Options& opts = Options());
     
-    /// Clean up libcurl global state.
     ~HttpClient();
 
     /**
-     * @brief Execute an HTTP request and populate the response.
-     * @param req Input request parameters (URL, method, headers, body).
-     * @param resp Output response data.
-     * @return true if the request succeeded, false otherwise
+     * @brief Make an HTTP request and fill in the response
+     * @param req Request details (method, URL, headers, body)
+     * @param resp Response object that gets populated
+     * @return true if request succeeded, false on error
      */
     bool perform(const HttpRequest& req, HttpResponse& resp) const;
 

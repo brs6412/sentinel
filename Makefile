@@ -8,7 +8,8 @@
         fixture-up fixture-down fixture-logs \
         scan verify budget e2e demo ci dev package docs watch \
         lint lint-code lint-config lint-fixtures \
-        build-demo run-demo e2e-fixture e2e-local llm-fallback validate fixtures-validate https-up tf-score
+        build-demo run-demo e2e-fixture e2e-local llm-fallback validate fixtures-validate https-up tf-score \
+        llm-build llm-test
 
 # -------------------- Config -------------------
 BUILD_DIR := build
@@ -104,6 +105,17 @@ test-verbose: build
 test-coverage: build
 	@cd $(BUILD_DIR) && ctest
 	@echo "(Coverage hooks would run here)"
+
+# -------------------- LLM Tests --------------------
+llm-build: build
+	@echo "Building LLM components..."
+	@cmake --build $(BUILD_DIR) --target sentinel_llm test_ollama_client test_poe_renderer
+	@echo "✓ LLM build complete"
+
+llm-test: build
+	@echo "Running LLM tests..."
+	@cd $(BUILD_DIR) && ctest -R "test_ollama_client|test_poe_renderer" --output-on-failure -V
+	@echo "✓ LLM tests complete"
 
 # -------------------- Fixtures (docker) --------
 fixture-up:

@@ -4,27 +4,20 @@
 #include <string>
 #include <set>
 #include <vector>
-#include <optional>
 #include <nlohmann/json.hpp>
 
-/**
- @brief Forward declaration for form struct passed by reference in parse_html
- */
+// Web crawler that follows links and extracts forms from HTML pages.
+// Starts from seed URLs and recursively follows links up to a configurable depth.
+// Can also load OpenAPI specs to discover API endpoints. Respects robots.txt when enabled.
+
 struct Form;
 
-/**
- * @brief Crawls URLs and extracts links and forms
- */
 class Crawler {
 public:
-    /**
-     * @brief Options controlling crawl behavior
-     */
     struct Options {
         int max_depth;
         bool respect_robots;
 
-        /// Default constructor
         Options()
             : max_depth(5),
               respect_robots(true)
@@ -32,28 +25,28 @@ public:
     };
 
     /**
-     * @brief Constructs a Crawler object
-     * @param client Reference to HttpClient for fetching pages
-     * @param opts Crawl options
+     * @brief Create a new crawler with an HTTP client and options
+     * @param client HTTP client to use for fetching pages
+     * @param opts Crawl options (max depth, robots.txt handling, etc.)
      */
     Crawler(const HttpClient& client, const Options& opts = Options());
 
     /**
-     * @brief Add a seed URL to start crawling from.
-     * @param url URL to add to seeds list.
+     * @brief Add a starting URL for the crawl
+     * @param url URL to start from
      */
     void add_seed(const std::string& url);
 
     /**
-     * @brief Load OpenAPI JSON file to integrate API paths into crawl.
-     * @param path Path to the OpenAPI JSON file.
-     * @return true if successful load, false otherwise
+     * @brief Load an OpenAPI spec file to discover API endpoints
+     * @param path Path to the OpenAPI JSON file
+     * @return true if loaded successfully, false otherwise
      */
     bool load_openapi_file(const std::string& path);
 
     /**
-     * @brief Run the crawler on the seed URLs.
-     * @return Vector of CrawlResult containing crawled pages, links, forms.
+     * @brief Start crawling from all seed URLs
+     * @return List of crawl results with pages, links, and forms found
      */
     std::vector<CrawlResult> run();
 
@@ -65,39 +58,39 @@ private:
     nlohmann::json openapi_;
 
     /**
-     * @brief Normalize a relative or absolute URL to absolute form.
-     * @param base Base URL to resolve relative hrefs.
-     * @param href URL to normalize.
-     * @return Absolute URL string.
+     * @brief Convert a relative or absolute URL into a fully qualified absolute URL
+     * @param base Base URL for resolving relative URLs
+     * @param href URL to normalize (can be relative or absolute)
+     * @return Absolute URL
      */
     std::string normalize_url(const std::string& base, const std::string& href) const;
 
     /**
-     * @brief Extract origin of a URL.
-     * @param url URL string.
-     * @return Origin string or empty if invalid.
+     * @brief Extract the origin (scheme + host + port) from a URL
+     * @param url Full URL
+     * @return Origin string, or empty if URL is invalid
      */
     std::string origin_of(const std::string& url) const;
 
     /**
-     * @brief Parse HTML content to extract links and forms.
-     * @param base_url Base URL of the page to resolving relative links.
-     * @param body HTML content.
-     * @param out_links Set to store extracted links.
-     * @param out_forms Vector to store extracted forms.
+     * @brief Parse HTML to find all links and forms
+     * @param base_url Base URL for resolving relative links
+     * @param body HTML content to parse
+     * @param out_links Set that will be populated with found links
+     * @param out_forms Vector that will be populated with found forms
      */
     void parse_html(
-        const std::string& base_url, 
-        const std::string& body, 
-        std::set<std::string>& out_links, 
+        const std::string& base_url,
+        const std::string& body,
+        std::set<std::string>& out_links,
         std::vector<Form>& out_forms
     ) const;
 
     /**
-     * @brief CHeck whether a URL path is allowed according to robots.txt. 
-     * @param origin Origin of the URL.
-     * @param path Path to check.
-     * @retrurn true if allowed, false otherwise
+     * @brief Check if a path is allowed by robots.txt for the given origin
+     * @param origin Origin (scheme + host + port) to check robots.txt for
+     * @param path URL path to check
+     * @return true if allowed, false if disallowed or robots.txt unavailable
      */
     bool robots_allows(const std::string& origin, const std::string& path) const;
 };
