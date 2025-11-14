@@ -6,6 +6,13 @@
 
 namespace logging {
 
+/**
+ * @brief Compute SHA-256 hash of a string and return hex-encoded result
+ * @param data Input string to hash
+ * @return Hex-encoded SHA-256 hash
+ */
+std::string Sha256Hex(const std::string& data);
+
 // Append-only logger with hash chaining for tamper detection.
 // Each log entry includes a hash of the previous entry, creating a chain.
 // This makes it easy to detect if someone modified or deleted entries.

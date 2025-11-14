@@ -1,16 +1,52 @@
 // Implementation of tamper-evident hash-chained JSONL logger
 
 #include "chain.h"
-#include <openssl/sha.h>
+#include <openssl/evp.h>
 #include <iomanip>
 #include <sstream>
 #include <chrono>
 #include <iostream>
 #include <algorithm>
+#include <stdexcept>
 
 namespace logging {
 
 using json = nlohmann::json;
+
+// Compute SHA-256 hash of a string and return hex-encoded result
+std::string Sha256Hex(const std::string& data) {
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    if (!ctx) {
+        throw std::runtime_error("EVP_MD_CTX_new failed");
+    }
+    
+    const EVP_MD* md = EVP_sha256();
+    if (EVP_DigestInit_ex(ctx, md, nullptr) != 1) {
+        EVP_MD_CTX_free(ctx);
+        throw std::runtime_error("EVP_DigestInit_ex failed");
+    }
+    
+    if (!data.empty() && EVP_DigestUpdate(ctx, data.data(), data.size()) != 1) {
+        EVP_MD_CTX_free(ctx);
+        throw std::runtime_error("EVP_DigestUpdate failed");
+    }
+    
+    unsigned char hash[32];
+    unsigned int outlen = 0;
+    if (EVP_DigestFinal_ex(ctx, hash, &outlen) != 1 || outlen != 32) {
+        EVP_MD_CTX_free(ctx);
+        throw std::runtime_error("EVP_DigestFinal_ex failed");
+    }
+    
+    EVP_MD_CTX_free(ctx);
+    
+    std::ostringstream hex;
+    for (unsigned int i = 0; i < outlen; i++) {
+        hex << std::hex << std::setw(2) << std::setfill('0') 
+            << static_cast<int>(hash[i]);
+    }
+    return hex.str();
+}
 
 // Convert LogEntry to JSON
 json LogEntry::to_json() const {
@@ -94,18 +130,8 @@ std::string ChainLogger::compute_hash(const LogEntry& entry) {
     canonical << canonicalize_json(entry.payload);
     
     std::string data = canonical.str();
-    
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    SHA256(reinterpret_cast<const unsigned char*>(data.c_str()), 
-           data.size(), hash);
-    
-    std::ostringstream hex;
-    hex << "sha256:";
-    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-        hex << std::hex << std::setw(2) << std::setfill('0') 
-            << static_cast<int>(hash[i]);
-    }
-    return hex.str();
+    std::string hex_hash = Sha256Hex(data);
+    return "sha256:" + hex_hash;
 }
 
 // Append new entry

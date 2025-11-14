@@ -79,7 +79,8 @@ if [[ $POE_STATUS -ne 0 ]]; then
     echo "Error: PoE smoke test failed" >&2
     exit $POE_STATUS
 fi
-echo "$POE_OUTPUT" | jq . 2>/dev/null || echo "$POE_OUTPUT"
+
+# Save raw JSON to runlogs (for automation)
 echo "$POE_OUTPUT" > "runlogs/poe_smoke-${TIMESTAMP}.json" || {
     echo "Error: Failed to write PoE output" >&2
     exit 1
@@ -88,10 +89,29 @@ echo "$POE_OUTPUT" > "runlogs/poe_smoke.json" || {
     echo "Error: Failed to write PoE output" >&2
     exit 1
 }
-POE_SUMMARY=$(echo "$POE_OUTPUT" | jq -r '.summary // empty' 2>/dev/null | head -1)
-if [[ -n "$POE_SUMMARY" && "$POE_SUMMARY" != "null" && "$POE_SUMMARY" != "empty" ]]; then
+
+# Parse and print human-readable summary
+if echo "$POE_OUTPUT" | jq . >/dev/null 2>&1; then
+    POE_SUMMARY=$(echo "$POE_OUTPUT" | jq -r 'if .summary and .summary != "" then .summary else "<missing>" end' 2>/dev/null || echo "<missing>")
+    POE_WHY=$(echo "$POE_OUTPUT" | jq -r 'if .why and .why != "" then .why else "<missing>" end' 2>/dev/null || echo "<missing>")
+    POE_FIX=$(echo "$POE_OUTPUT" | jq -r 'if .fix and .fix != "" then .fix else "<missing>" end' 2>/dev/null || echo "<missing>")
+    POE_TEST=$(echo "$POE_OUTPUT" | jq -r 'if .test and .test != "" then .test else "<missing>" end' 2>/dev/null || echo "<missing>")
+    POE_CWE=$(echo "$POE_OUTPUT" | jq -r 'if .tags.cwe and .tags.cwe != "" then .tags.cwe else "<missing>" end' 2>/dev/null || echo "<missing>")
+    POE_OWASP=$(echo "$POE_OUTPUT" | jq -r 'if .tags.owasp and .tags.owasp != "" then .tags.owasp else "<missing>" end' 2>/dev/null || echo "<missing>")
+
     echo ""
-    echo "Summary: $POE_SUMMARY"
+    echo "Finding: ${POE_SUMMARY}"
+    echo ""
+    echo "Why: ${POE_WHY}"
+    echo ""
+    echo "Fix: ${POE_FIX}"
+    echo ""
+    echo "Test: ${POE_TEST}"
+    echo ""
+    echo "CWE: ${POE_CWE} | OWASP: ${POE_OWASP}"
+else
+    echo "Warning: PoE parsing failed, raw output:" >&2
+    echo "$POE_OUTPUT" >&2
 fi
 
 echo ""
@@ -117,7 +137,7 @@ fi
 # Keep server running for scanner tests (will be killed at end of script)
 
 echo ""
-echo "=== Scanner Test ==="
+echo "=== Scanner Test (Insecure Endpoint) ==="
 SCAN_OUTPUT=$(./build/sentinel scan --target http://127.0.0.1:8080 2>&1) || SCAN_STATUS=$?
 SCAN_STATUS=${SCAN_STATUS:-$?}
 echo "$SCAN_OUTPUT"
@@ -135,6 +155,31 @@ if echo "$SCAN_OUTPUT" | grep -qE 'max: [0-9]+'; then
 fi
 echo ""
 echo "Summary: Findings: ${SCAN_FINDINGS}; Points: ${SCAN_POINTS}/${SCAN_BUDGET}; ExitCode: ${SCAN_STATUS}"
+
+# Show generated artifacts and test files
+echo ""
+echo "Generated artifacts:"
+if [[ -d artifacts ]]; then
+    ls -lh artifacts/ | tail -n +2 | awk '{print "  " $9 " (" $5 ")"}'
+fi
+if [[ -d out/tests ]]; then
+    echo ""
+    echo "Generated test files (out/tests/):"
+    TEST_COUNT=$(find out/tests -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+    if [[ $TEST_COUNT -gt 0 ]]; then
+        find out/tests -name "*.md" -exec ls -lh {} \; | awk '{print "  " $9 " (" $5 ")"}' | head -5
+        if [[ $TEST_COUNT -gt 5 ]]; then
+            echo "  ... and $((TEST_COUNT - 5)) more"
+        fi
+    else
+        echo "  (none)"
+    fi
+fi
+if [[ -d out/reports ]]; then
+    echo ""
+    echo "Generated chain logs (out/reports/):"
+    ls -lh out/reports/ | tail -n +2 | awk '{print "  " $9 " (" $5 ")"}'
+fi
 
 if [[ $SCAN_STATUS -ne 0 && $SCAN_STATUS -ne 1 && $SCAN_STATUS -ne 2 ]]; then
     echo "Error: Scanner failed with exit code $SCAN_STATUS" >&2
@@ -161,10 +206,32 @@ fi
 echo ""
 echo "Summary: Findings: ${SECURE_SCAN_FINDINGS}; Points: ${SECURE_SCAN_POINTS}/${SECURE_SCAN_BUDGET}; ExitCode: ${SECURE_SCAN_STATUS}"
 
+# Show comparison
+echo ""
+echo "=== Comparison: Insecure vs Secure ==="
+echo "Insecure endpoint (http://127.0.0.1:8080):"
+echo "  Findings: ${SCAN_FINDINGS} | Points: ${SCAN_POINTS}/${SCAN_BUDGET} | Exit: ${SCAN_STATUS}"
+echo "Secure endpoint (http://127.0.0.1:8080/secure):"
+echo "  Findings: ${SECURE_SCAN_FINDINGS} | Points: ${SECURE_SCAN_POINTS}/${SECURE_SCAN_BUDGET} | Exit: ${SECURE_SCAN_STATUS}"
+
 # Cleanup: kill demo server
 kill "$DEMO_PID" 2>/dev/null || true
 wait "$DEMO_PID" 2>/dev/null || true
 
+echo ""
+echo "=== Demo Summary ==="
+echo "Output locations:"
+echo "  - runlogs/ (demo logs with timestamps)"
+if [[ -d artifacts ]]; then
+    echo "  - artifacts/ (reproduction scripts: repro.sh, repro_*.cpp)"
+fi
+if [[ -d out/tests ]]; then
+    TEST_COUNT=$(find out/tests -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+    echo "  - out/tests/ ($TEST_COUNT markdown test files)"
+fi
+if [[ -d out/reports ]]; then
+    echo "  - out/reports/ (tamper-evident chain logs: sentinel_chain.jsonl)"
+fi
 echo ""
 echo "Demo completed successfully"
 exit $SCAN_STATUS

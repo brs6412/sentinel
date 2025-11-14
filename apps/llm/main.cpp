@@ -11,12 +11,13 @@
 #include <cstring>
 
 static void print_usage(const char* prog_name) {
-    std::cerr << "Usage: " << prog_name << " --model <name> --prompt <text> [--json]\n"
+    std::cerr << "Usage: " << prog_name << " --model <name> --prompt <text> [--json] [--timeout-ms <ms>]\n"
               << "\n"
               << "Options:\n"
               << "  --model <name>    Model name (required, e.g., llama3:instruct)\n"
               << "  --prompt <text>   Prompt text (required)\n"
               << "  --json            Expect/print JSON response\n"
+              << "  --timeout-ms <ms> Timeout in milliseconds (default: 5000)\n"
               << "\n"
               << "Environment:\n"
               << "  OLLAMA_HOST       Ollama server URL (default: http://127.0.0.1:11434)\n";
@@ -26,6 +27,7 @@ int main(int argc, char** argv) {
     std::string model;
     std::string prompt;
     bool expect_json = false;
+    int timeout_ms = 5000;  // default 5 seconds
 
     // Simple argv parsing (no external libs)
     for (int i = 1; i < argc; ++i) {
@@ -45,6 +47,22 @@ int main(int argc, char** argv) {
             prompt = argv[++i];
         } else if (std::strcmp(argv[i], "--json") == 0) {
             expect_json = true;
+        } else if (std::strcmp(argv[i], "--timeout-ms") == 0) {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: --timeout-ms requires a value\n";
+                print_usage(argv[0]);
+                return 1;
+            }
+            try {
+                timeout_ms = std::stoi(argv[++i]);
+                if (timeout_ms <= 0) {
+                    std::cerr << "Error: timeout must be positive\n";
+                    return 1;
+                }
+            } catch (...) {
+                std::cerr << "Error: invalid timeout value: " << argv[i] << "\n";
+                return 1;
+            }
         } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
             print_usage(argv[0]);
             return 0;
@@ -73,8 +91,9 @@ int main(int argc, char** argv) {
             return 1;
         }
 
-        // Generate response
-        std::string response = client.Generate(model, prompt);
+        // Generate response with specified timeout
+        std::string response = client.Generate(model, prompt, std::nullopt, 
+                                                std::chrono::milliseconds(timeout_ms));
 
         // Output result
         if (expect_json) {

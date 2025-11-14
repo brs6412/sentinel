@@ -55,12 +55,16 @@ target_link_libraries(logging PUBLIC
 add_library(artifacts
     src/artifacts/artifacts.cpp
 )
-target_include_directories(artifacts PUBLIC src/artifacts)
+target_include_directories(artifacts PUBLIC 
+    src/artifacts
+    ${CMAKE_SOURCE_DIR}/src
+)
 target_link_libraries(artifacts PUBLIC
     OpenSSL::SSL
     OpenSSL::Crypto
     nlohmann_json::nlohmann_json
     schema
+    logging
 )
 
 add_library(budget

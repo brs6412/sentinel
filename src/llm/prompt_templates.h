@@ -44,6 +44,46 @@ inline std::string BuildPoEPrompt(const nlohmann::json& finding_json) {
 }
 
 /**
+ * @brief Build a prompt asking the LLM to generate structured PoE JSON
+ * @param finding_json Security finding JSON object
+ * @return Formatted prompt instruction string for generating PoE JSON
+ */
+inline std::string BuildStructuredPoEPrompt(const nlohmann::json& finding_json) {
+    std::ostringstream prompt;
+
+    prompt << "You are Sentinel PoE. Read the field 'finding' (JSON). "
+           << "Output ONLY a single JSON object with exactly these keys: "
+           << "summary, why, fix, test, tags: { cwe, owasp }. "
+           << "No markdown, no prose outside JSON, no code fences.\n\n"
+           << "The 'test' field MUST be either:\n"
+           << "- A short checklist of concrete steps to verify the fix "
+           << "(for example, bullet-like text starting with '-' or '1.'), OR\n"
+           << "- A tiny, copy/pasteable code snippet, such as a curl command "
+           << "or a minimal unit test skeleton.\n"
+           << "Make it specific to this vulnerability. Avoid vague statements "
+           << "like 'verify it works' – show exactly what to run or check.\n"
+           << "If emitting code, use something simple like curl or Python/pytest-style function.\n"
+           << "Checklist format is fine (e.g., '- send request without header; "
+           << "- send request with header; compare results').\n"
+           << "The test field may contain newlines for multiple checklist lines or code.\n\n"
+           << "Expected JSON structure:\n"
+           << "{\n"
+           << "  \"summary\": \"...\",\n"
+           << "  \"why\": \"...\",\n"
+           << "  \"fix\": \"...\",\n"
+           << "  \"test\": \"...\",\n"
+           << "  \"tags\": {\n"
+           << "    \"cwe\": \"...\",\n"
+           << "    \"owasp\": \"...\"\n"
+           << "  }\n"
+           << "}\n\n"
+           << "Finding:\n"
+           << finding_json.dump(2);
+
+    return prompt.str();
+}
+
+/**
  * @brief Build a prompt asking the LLM to rate input safety on a 0-100 scale
  * @param input_snippet Text to evaluate for safety/risk
  * @return Formatted prompt string

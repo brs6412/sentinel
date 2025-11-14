@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 #include <iomanip>
+#include <regex>
 
 namespace budget {
 
@@ -25,7 +26,21 @@ Policy Policy::get_default() {
     return p;
 }
 
-// Load policy from file
+// Simple YAML parser helper - extract value for a key
+static int parse_yaml_int(const std::string& yaml, const std::string& key, int defv) {
+    std::regex rx(key + "\\s*:\\s*(-?\\d+)");
+    std::smatch m;
+    if (std::regex_search(yaml, m, rx)) {
+        try {
+            return std::stoi(m[1].str());
+        } catch (...) {
+            return defv;
+        }
+    }
+    return defv;
+}
+
+// Load policy from file (supports both YAML and JSON)
 Policy Policy::load(const std::string& policy_path) {
     std::ifstream in(policy_path);
     if (!in.is_open()) {
@@ -33,11 +48,15 @@ Policy Policy::load(const std::string& policy_path) {
         return get_default();
     }
     
+    // Read entire file
+    std::string content((std::istreambuf_iterator<char>(in)),
+                       std::istreambuf_iterator<char>());
+    
+    Policy p;
+    
+    // Try parsing as JSON first
     try {
-        json j;
-        in >> j;
-        
-        Policy p;
+        json j = json::parse(content);
         
         // Load category scores
         if (j.contains("category_scores")) {
@@ -51,10 +70,45 @@ Policy Policy::load(const std::string& policy_path) {
         p.block_threshold = j.value("block_threshold", 5);
         
         return p;
-    } catch (const std::exception& e) {
-        std::cerr << "Error parsing policy file: " << e.what() << "\n";
-        std::cerr << "Using default policy\n";
-        return get_default();
+    } catch (...) {
+        // If JSON parsing fails, try simple YAML parsing
+        // Look for risk_budget section
+        std::regex risk_budget_rx("risk_budget\\s*:\\s*\\n(?:[^\\n]*\\n)*?\\s*max_points\\s*:\\s*(\\d+)");
+        std::smatch m;
+        if (std::regex_search(content, m, risk_budget_rx)) {
+            // Found risk_budget section, parse it
+            p.block_threshold = parse_yaml_int(content, "max_points", 10);
+            p.warn_threshold = p.block_threshold / 2; // Default warn to half of block
+            
+            // Parse weights section
+            std::regex weights_rx("weights\\s*:\\s*\\n(?:[^\\n]*\\n)*?\\s*low\\s*:\\s*(\\d+)");
+            std::smatch wm;
+            if (std::regex_search(content, wm, weights_rx)) {
+                int low_weight = parse_yaml_int(content, "low", 1);
+                int medium_weight = parse_yaml_int(content, "medium", 2);
+                int high_weight = parse_yaml_int(content, "high", 4);
+                int critical_weight = parse_yaml_int(content, "critical", 8);
+                
+                // Map severity-based weights to category scores
+                // For now, use default category scores
+            }
+        } else {
+            // Fall back to simple YAML parsing for old format
+            p.warn_threshold = parse_yaml_int(content, "warn_threshold", 3);
+            p.block_threshold = parse_yaml_int(content, "block_threshold", 5);
+        }
+        
+        // If we didn't get category scores, use defaults
+        if (p.category_scores.empty()) {
+            p.category_scores["missing_security_header"] = 2;
+            p.category_scores["unsafe_cookie"] = 1;
+            p.category_scores["cors_misconfiguration"] = 3;
+            p.category_scores["reflected_xss"] = 5;
+            p.category_scores["csrf"] = 4;
+            p.category_scores["idor"] = 4;
+        }
+        
+        return p;
     }
 }
 

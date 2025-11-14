@@ -1,11 +1,11 @@
 // Implementation of reproduction artifact generators
 
 #include "artifacts.h"
+#include "logging/chain.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <filesystem>
-#include <openssl/sha.h>
 #include <iomanip>
 #include <chrono>
 
@@ -298,24 +298,13 @@ std::string ArtifactGenerator::hash_file(const std::string& file_path) {
         return "";
     }
     
-    SHA256_CTX ctx;
-    SHA256_Init(&ctx);
+    // Read entire file into memory
+    std::ostringstream buffer;
+    buffer << file.rdbuf();
+    std::string file_contents = buffer.str();
     
-    char buffer[8192];
-    while (file.read(buffer, sizeof(buffer)) || file.gcount() > 0) {
-        SHA256_Update(&ctx, buffer, file.gcount());
-    }
-    
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    SHA256_Final(hash, &ctx);
-    
-    std::ostringstream hex;
-    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-        hex << std::hex << std::setw(2) << std::setfill('0') 
-            << static_cast<int>(hash[i]);
-    }
-    
-    return hex.str();
+    // Hash using EVP via Sha256Hex
+    return logging::Sha256Hex(file_contents);
 }
 
 // Generate manifest

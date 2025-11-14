@@ -32,12 +32,18 @@ std::string generate_run_id() {
  * @return Status code (0 on success)
  */
 int generate_findings(HttpClient& client, std::string run_id, std::vector<CrawlResult>& results) {
-    logging::ChainLogger logger("./logs/scan.log.jsonl", run_id);
+    // Create output directories
+    std::filesystem::create_directories("./out/reports");
+    logging::ChainLogger logger("./out/reports/sentinel_chain.jsonl", run_id);
 
     VulnEngine vulnEngine(client);
     std::vector<Finding> findings = vulnEngine.analyze(results);
 
     std::cout << "Generated " << findings.size() << " findings\n";
+
+    // Create output directories
+    std::filesystem::create_directories("./out/tests");
+    std::filesystem::create_directories("./out/reports");
 
     // Write results to JSON and create mapping of aggregated URLs to findings
     std::map<std::string, std::vector<std::pair<std::string, nlohmann::json>>> grouped;
@@ -47,6 +53,66 @@ int generate_findings(HttpClient& client, std::string run_id, std::vector<CrawlR
         const std::string& category = f.category;
         const nlohmann::json& evidence = f.evidence;
         grouped[url].push_back({category, evidence});
+
+        // Log finding to chain logger
+        nlohmann::json finding_payload;
+        finding_payload["id"] = f.id;
+        finding_payload["url"] = f.url;
+        finding_payload["category"] = f.category;
+        finding_payload["severity"] = f.severity;
+        finding_payload["confidence"] = f.confidence;
+        finding_payload["method"] = f.method;
+        finding_payload["evidence"] = f.evidence;
+        logger.append("finding_recorded", finding_payload);
+
+        // Generate markdown test file for this finding
+        std::string test_file = "./out/tests/" + f.id + ".md";
+        std::ofstream test_out(test_file);
+        if (test_out.is_open()) {
+            test_out << "# Test: " << f.category << "\n\n";
+            test_out << "**Finding ID:** " << f.id << "\n\n";
+            test_out << "**Target URL:** " << f.url << "\n\n";
+            test_out << "**Severity:** " << f.severity << "\n\n";
+            test_out << "**Category:** " << f.category << "\n\n";
+
+            // Generate test snippet from evidence if available
+            std::string test_snippet;
+            if (f.category == "missing_security_header") {
+                std::string header = evidence.value("header_checked", "X-Frame-Options");
+                test_snippet = "curl -s -D - " + f.url + " | grep -iE '^" + header + ":'";
+            } else if (f.category == "unsafe_cookie") {
+                test_snippet = "curl -s -D - " + f.url + " | grep -i 'Set-Cookie:'";
+            } else if (f.category == "cors_misconfiguration") {
+                test_snippet = "curl -s -D - -H 'Origin: https://evil.com' " + f.url + " | grep -i 'Access-Control-Allow-Origin:'";
+            } else {
+                test_snippet = "curl -s -D - " + f.url;
+            }
+
+            test_out << "## Test Command\n\n";
+            test_out << "```bash\n";
+            test_out << test_snippet << "\n";
+            test_out << "```\n\n";
+
+            // Remediation summary
+            test_out << "## Remediation\n\n";
+            if (f.category == "missing_security_header") {
+                std::string header = evidence.value("header_checked", "X-Frame-Options");
+                test_out << "Add the `" << header << "` header to responses.\n\n";
+                if (header == "X-Frame-Options") {
+                    test_out << "Example: `X-Frame-Options: DENY` or `X-Frame-Options: SAMEORIGIN`\n";
+                } else if (header == "Content-Security-Policy") {
+                    test_out << "Example: `Content-Security-Policy: frame-ancestors 'none'`\n";
+                }
+            } else if (f.category == "unsafe_cookie") {
+                test_out << "Ensure cookies have `Secure`, `HttpOnly`, and `SameSite` attributes set appropriately.\n";
+            } else if (f.category == "cors_misconfiguration") {
+                test_out << "Restrict CORS `Access-Control-Allow-Origin` to specific trusted origins, avoid wildcards.\n";
+            } else {
+                test_out << "Review and fix the security issue identified.\n";
+            }
+
+            test_out.close();
+        }
 
         nlohmann::json j;
         j["id"] = f.id;
@@ -85,15 +151,49 @@ int generate_findings(HttpClient& client, std::string run_id, std::vector<CrawlR
         std::cout << "  ✓ repro_" << run_id << ".cpp\n";
     }
 
-//    std::cout << "Results:\n";
-//    for (const auto& [url, vec] : grouped) {
-//        std::cout << url << ":\n";
-//        for (const auto& [category, evidence] : vec) {
-//            std::cout << " " << category << ": \n";
-//            std::cout << " "  << evidence.dump(2) << "\n";
-//        }
-//    }
-    return 0;
+    // Generate markdown test files
+    std::cout << "Generating test files...\n";
+    int test_files_generated = 0;
+    for (const auto& f : findings) {
+        std::string test_file = "./out/tests/" + f.id + ".md";
+        if (std::filesystem::exists(test_file)) {
+            test_files_generated++;
+        }
+    }
+    if (test_files_generated > 0) {
+        std::cout << "  ✓ " << test_files_generated << " test file(s) in out/tests/\n";
+    }
+
+    // Verify chain integrity
+    if (!logging::ChainLogger::verify("./out/reports/sentinel_chain.jsonl")) {
+        std::cerr << "Warning: Chain verification failed - log may have been tampered with\n";
+    }
+
+    // Evaluate budget
+    try {
+        auto policy = budget::Policy::load("config/policy.yaml");
+        budget::BudgetEvaluator evaluator(policy);
+
+        std::vector<nlohmann::json> jfindings;
+        for (const auto& f : findings) {
+            nlohmann::json j;
+            j["id"] = f.id;
+            j["url"] = f.url;
+            j["category"] = f.category;
+            j["severity"] = f.severity;
+            j["confidence"] = f.confidence;
+            jfindings.push_back(j);
+        }
+
+        auto result = evaluator.evaluate_findings(jfindings);
+        std::cout << "Total risk points: " << result.total_score << " (warn: " << policy.warn_threshold << ", block: " << policy.block_threshold << ")\n";
+
+        // Return appropriate exit code based on budget
+        return result.exit_code();
+    } catch (const std::exception& e) {
+        std::cerr << "Warning: Budget evaluation failed: " << e.what() << "\n";
+        return 0; // Continue with success if budget evaluation fails
+    }
 }
 
 /**
@@ -178,9 +278,9 @@ int run_scan(int argc, char** argv) {
     ofs.close();
 
     std::cout << "Generating findings...\n";
-    generate_findings(client, run_id, results);
+    int exit_code = generate_findings(client, run_id, results);
 
-    return 0;
+    return exit_code;
 }
 
 /**
