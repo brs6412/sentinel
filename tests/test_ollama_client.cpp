@@ -92,8 +92,18 @@ public:
             server_->listen("127.0.0.1", port_);
         });
 
-        // Wait for server to start
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        // Wait for server to start and verify it's ready
+        for (int i = 0; i < 50; ++i) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            httplib::Client test_client("127.0.0.1", port_);
+            test_client.set_connection_timeout(1, 0);
+            test_client.set_read_timeout(1, 0);
+            if (auto res = test_client.Get("/api/tags")) {
+                if (res->status == 200) {
+                    return port_;
+                }
+            }
+        }
         return port_;
     }
 
@@ -388,6 +398,9 @@ TEST_CASE("OllamaClient Generate handles invalid JSON schema gracefully", "[llm]
     MockOllamaServer mock;
     int port = mock.start();
     REQUIRE(port > 0);
+
+    // Give server extra time to be ready
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
     std::string host = "http://127.0.0.1:" + std::to_string(port);
     llm::OllamaClient client(host);
