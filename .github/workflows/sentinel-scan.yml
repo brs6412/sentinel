@@ -82,7 +82,7 @@ jobs:
     - name: Comment PR with results
       # Skip commenting on forked pull requests because default GITHUB_TOKEN
       # lacks permission to comment on the base repository issues.
-      if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+      if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
       uses: actions/github-script@v6
       with:
         script: |
