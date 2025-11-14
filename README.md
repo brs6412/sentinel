@@ -2,12 +2,67 @@
 
 Sentinel is a Dynamic Application Security Testing (DAST) system for web applications and APIs. It detects and reproduces vulnerabilities with verifiable proofs, CI integration, and optional LLM-assisted payload generation.
 
+## Architecture
+
+The following diagram illustrates Sentinel's security scanning and reporting pipeline:
+
+```mermaid
+flowchart TD
+    Target[Target Web App / API<br/>External System]
+    Crawler[Crawler<br/>Web Exploration & Input]
+    Inputs[inputs.jsonl]
+    LLM[LLM Module<br/>LLM Test Variation & Safety]
+    Detection[Detection & Policy Layer<br/>Vulnerability Detection &<br/>Evidence Generation]
+    Manifest[assets.manifest.json]
+    Findings[findings.jsonl]
+    ScanLog[scanlog.jsonl<br/>Tamper-Evident Chain Log]
+    CI[CI / Reporting Layer<br/>Reporting pipeline]
+    
+    Target -->|Crawl| Crawler
+    Crawler -->|Outputs| Inputs
+    Inputs -.->|Reference| LLM
+    Inputs -->|Primary Data| Detection
+    LLM -->|Test Variations| Detection
+    Manifest -.->|Configuration| Detection
+    Detection -->|Vulnerability Data| Findings
+    Detection -->|Audit Log| ScanLog
+    Findings -->|Report| CI
+    
+    style Target fill:#e1f5ff
+    style Crawler fill:#fff4e1
+    style Inputs fill:#f0f0f0
+    style LLM fill:#e8f5e9
+    style Detection fill:#fff3e0
+    style Manifest fill:#f0f0f0
+    style Findings fill:#f3e5f5
+    style ScanLog fill:#f3e5f5
+    style CI fill:#e3f2fd
+```
+
+**Data Flow:**
+1. **Crawler** explores the target web application/API and outputs discovered endpoints to `inputs.jsonl`
+2. **LLM Module** uses `inputs.jsonl` as reference to generate safe test variations (dashed arrow = reference/configuration)
+3. **Detection & Policy Layer** receives:
+   - Primary data from `inputs.jsonl` (solid arrow)
+   - Test variations from LLM Module (solid arrow)
+   - Configuration from `assets.manifest.json` (dashed arrow = configuration)
+4. **Detection & Policy Layer** outputs:
+   - `findings.jsonl` - Detailed vulnerability findings
+   - `scanlog.jsonl` - Tamper-evident hash-chained audit log
+5. **CI/Reporting Layer** consumes `findings.jsonl` for integration and reporting
+
+**Key Components:**
+- **inputs.jsonl**: Raw crawl results (discovered URLs, forms, endpoints)
+- **findings.jsonl**: Processed security findings with evidence
+- **scanlog.jsonl**: Tamper-evident chain log (corresponds to `out/reports/sentinel_chain.jsonl`)
+- **assets.manifest.json**: Configuration manifest for detection policies
+
 ## Build Instructions
 
 ### Prerequisites
-- CMake ≥ 3.18  
+- CMake ≥ 3.18
 - C++17 compiler
-- libcurl development headers and library installed  
+- libcurl development headers and library installed
 - gumbo-parser (HTML parsing)
 - nlohmann/json (JSON handling)
 - libssl development headers and library installed
