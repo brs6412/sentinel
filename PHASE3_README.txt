@@ -1,7 +1,7 @@
 Sentinel: Phase 3 Overview and How to Run It
 ===========================================
 
-Sentinel is a Dynamic Application Security Testing (DAST) system for web applications and APIs. It detects and reproduces vulnerabilities with verifiable proofs, CI integration, and optional LLM-assisted payload generation.
+Sentinel is a Dynamic Application Security Testing (DAST) system for web applications and APIs. It detects and reproduces vulnerabilities with verifiable proofs, CI integration, and LLM-assisted payload generation.
 
 Root Files:
 CMakeLists.txt, Makefile – Build configuration
@@ -129,6 +129,8 @@ This script detects your operating system and installs the required packages. It
 - Fedora/RHEL (dnf/yum)
 - Arch Linux (pacman)
 
+Note: The installation script will check for Ollama but cannot install it automatically. You must install Ollama manually from https://ollama.ai and ensure it is running before using Sentinel.
+
 Alternatively, you can install dependencies manually:
 
 On Debian/Ubuntu:
@@ -142,11 +144,14 @@ On macOS:
 brew install cmake gumbo-parser nlohmann-json openssl jq curl ripgrep python3
 ```
 
-For LLM features (optional):
+Ollama is required for LLM features. Install it from https://ollama.ai, then start the server:
 ```bash
-# Install Ollama from https://ollama.ai
-# Then start the server:
 ollama serve
+```
+
+Set the Ollama host environment variable:
+```bash
+export OLLAMA_HOST=http://127.0.0.1:11434
 ```
 
 ----------------------------------------
@@ -190,20 +195,20 @@ These cover:
 
 - Hash‑chained logging (`test_chain*`).
 - Risk budget evaluation (`test_budget`).
-- Ollama client and PoE renderer behavior (when enabled).
+- Ollama client and PoE renderer behavior.
 
 2) Full LLM test suite
 ----------------------
 
 Prerequisites:
 
-- Ollama is installed and serving locally:
+- Ollama must be installed and serving locally:
 
   ```bash
   ollama serve
   ```
 
-- Optional: set the host explicitly:
+- Set the Ollama host environment variable:
 
   ```bash
   export OLLAMA_HOST=http://127.0.0.1:11434
@@ -244,11 +249,18 @@ The demo exercises:
 - The **LLM PoE pipeline**.
 - The **chain logger** and **risk budget**.
 
-1) Start Ollama (if not already running)
-----------------------------------------
+1) Ensure Ollama is running
+----------------------------
+
+Ollama must be installed and running. Start the server if it's not already running:
 
 ```bash
 ollama serve
+```
+
+Set the Ollama host environment variable:
+
+```bash
 export OLLAMA_HOST=http://127.0.0.1:11434
 ```
 
