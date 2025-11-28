@@ -118,7 +118,7 @@ int main() {
     res.set_header("X-Frame-Options", "DENY");
     res.set_header("X-Content-Type-Options", "nosniff");
     res.set_header("Content-Security-Policy", "default-src 'self'");
-    res.set_header("Strict-TransportSecurity", "max-age=63072000; includeSubDomains; preload");
+    res.set_header("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
     res.set_header("Referrer-Policy", "no-referrer");
     res.set_header("Set-Cookie", "session=secure123;Path=/;Secure;HttpOnly;SameSite=Strict");
     res.status = 200;
