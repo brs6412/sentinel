@@ -15,6 +15,10 @@ category_scores:
   reflected_xss: 5
   csrf: 4
   idor: 4
+  information_disclosure: 3
+  open_redirect: 3
+  directory_listing: 3
+  http_method_vulnerability: 4
 
 # Thresholds
 warn_threshold: 3

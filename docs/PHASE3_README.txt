@@ -9,7 +9,7 @@ CMakeLists.txt, Makefile – Build configuration
 ci_policy.yml – CI risk budget rules
 docker-compose.yml – Containerized setup
 README.md – Developer guide
-PHASE3_README.txt – This file (overview and usage)
+docs/PHASE3_README.txt – This file (overview and usage)
 
 .github/workflows/:
 fixture-e2e.yml – End-to-end test automation

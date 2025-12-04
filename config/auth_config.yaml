@@ -1,0 +1,38 @@
+# Authentication configuration for Sentinel
+# Supports multiple users for role-based testing
+# 
+# Authentication types:
+#   - form_based: Username/password form submission
+#   - api_bearer: Bearer token authentication
+#   - api_key: API key authentication (sent in custom headers)
+#   - oauth: OAuth 2.0 client credentials flow
+
+users:
+  # Example: Form-based authentication
+  - user_id: "admin"
+    auth_type: "form_based"
+    username: "admin"
+    password: "admin123"
+    login_url: "http://127.0.0.1:8080/login"
+  
+  # Example: Bearer token authentication
+  - user_id: "api_user"
+    auth_type: "api_bearer"
+    token: "your_bearer_token_here"
+    api_endpoint: "https://api.example.com/validate"
+  
+  # Example: API key authentication
+  - user_id: "api_key_user"
+    auth_type: "api_key"
+    token: "your_api_key_here"
+    api_endpoint: "https://api.example.com/validate"
+    header_X-API-Key: "${token}"  # Custom header with token placeholder
+  
+  # Example: OAuth authentication
+  - user_id: "oauth_user"
+    auth_type: "oauth"
+    oauth_client_id: "your_client_id"
+    oauth_client_secret: "your_client_secret"
+    oauth_token_url: "https://oauth.example.com/token"
+    oauth_scope: "read write"
+

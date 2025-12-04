@@ -1,0 +1,39 @@
+# Response Pattern Analysis Configuration
+# Custom patterns can be added here to supplement or override default patterns
+# Patterns are matched against HTTP response bodies to detect vulnerability indicators
+
+patterns:
+  # Example: Custom SQL error pattern
+  # - name: "custom_mysql_error"
+  #   type: "sql_error"
+  #   regex: "Custom MySQL error pattern here"
+  #   database_type: "mysql"
+  #   confidence: 0.9
+  #   case_sensitive: false
+  #   description: "Custom MySQL error detection"
+  
+  # Example: Custom command output pattern
+  # - name: "custom_command_output"
+  #   type: "command_output"
+  #   regex: "pattern here"
+  #   confidence: 0.85
+  #   case_sensitive: false
+  #   description: "Custom command output detection"
+  
+  # Example: Custom stack trace pattern
+  # - name: "custom_stack_trace"
+  #   type: "stack_trace"
+  #   regex: "pattern here"
+  #   framework: "custom_framework"
+  #   confidence: 0.9
+  #   case_sensitive: false
+  #   description: "Custom stack trace detection"
+
+# Note: Default patterns are hardcoded in ResponseAnalyzer and include:
+# - SQL errors for MySQL, PostgreSQL, SQL Server, and Oracle
+# - Command output patterns (passwd, file listings, system info)
+# - File content patterns (hosts, web.config)
+# - Stack traces for Java, Python, .NET, PHP, Ruby
+# - Debug information (internal paths, version numbers, connection strings)
+# - Framework errors (Django, Rails)
+

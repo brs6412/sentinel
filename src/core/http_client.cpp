@@ -47,9 +47,27 @@ HttpClient::HttpClient(const Options& opts) : opts_(opts) {
     }
 }
 
-/// Clean up global libcurl state.
+/    // Clean up global libcurl state.
 HttpClient::~HttpClient() {
     curl_global_cleanup();
+}
+
+// Build Cookie header string from map of cookies
+std::string HttpClient::build_cookie_header(const std::map<std::string, std::string>& cookies) {
+    if (cookies.empty()) {
+        return "";
+    }
+    
+    std::ostringstream oss;
+    bool first = true;
+    for (const auto& [name, value] : cookies) {
+        if (!first) {
+            oss << "; ";
+        }
+        oss << name << "=" << value;
+        first = false;
+    }
+    return oss.str();
 }
 
 /// Execute an HTTP request and populate a response object.

@@ -28,3 +28,7 @@
 # OS files
 .DS_Store
 Thumbs.db
+
+# Backup files
+*.bak
+*~
