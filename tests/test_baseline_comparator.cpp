@@ -12,7 +12,7 @@
  */
 
 #define CATCH_CONFIG_MAIN
-#include <catch2/catch.hpp>
+#include "catch_amalgamated.hpp"
 #include "core/baseline_comparator.h"
 #include "core/http_client.h"
 #include "core/timing_analyzer.h"
@@ -359,7 +359,8 @@ TEST_CASE("Vulnerability type detection - SQL injection", "[baseline_comparator]
     ComparisonResult result = comparator.compare(baseline_resp, test_resp, TimingBaseline(), 0.0, payload);
     
     if (result.indicates_vulnerability) {
-        REQUIRE(result.vulnerability_type == "sql_injection" || result.vulnerability_type == "injection");
+        bool has_vuln_type = (result.vulnerability_type == "sql_injection" || result.vulnerability_type == "injection");
+        REQUIRE(has_vuln_type);
     }
 }
 
@@ -379,7 +380,8 @@ TEST_CASE("Vulnerability type detection - command injection", "[baseline_compara
     ComparisonResult result = comparator.compare(baseline_resp, test_resp, TimingBaseline(), 0.0, payload);
     
     if (result.indicates_vulnerability) {
-        REQUIRE(result.vulnerability_type == "command_injection" || result.vulnerability_type == "injection");
+        bool has_vuln_type = (result.vulnerability_type == "command_injection" || result.vulnerability_type == "injection");
+        REQUIRE(has_vuln_type);
     }
 }
 

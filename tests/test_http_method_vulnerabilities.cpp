@@ -12,7 +12,7 @@
  */
 
 #define CATCH_CONFIG_MAIN
-#include <catch2/catch.hpp>
+#include "catch_amalgamated.hpp"
 #include "core/vuln_engine.h"
 #include "core/http_client.h"
 #include "schema/crawl_result.h"
@@ -189,7 +189,8 @@ TEST_CASE("PUT method functional verification", "[http_method][put][verification
     HttpResponse put_resp;
     if (client.perform(put_req, put_resp)) {
         // PUT should be accepted (201, 200, or 204)
-        REQUIRE((put_resp.status == 200 || put_resp.status == 201 || put_resp.status == 204));
+        bool valid_put_status = (put_resp.status == 200 || put_resp.status == 201 || put_resp.status == 204);
+        REQUIRE(valid_put_status);
     }
 }
 
@@ -204,7 +205,8 @@ TEST_CASE("DELETE method functional verification", "[http_method][delete][verifi
     HttpResponse delete_resp;
     if (client.perform(delete_req, delete_resp)) {
         // DELETE should be accepted (200, 202, or 204)
-        REQUIRE((delete_resp.status == 200 || delete_resp.status == 202 || delete_resp.status == 204));
+        bool valid_delete_status = (delete_resp.status == 200 || delete_resp.status == 202 || delete_resp.status == 204);
+        REQUIRE(valid_delete_status);
     }
 }
 
@@ -243,7 +245,8 @@ TEST_CASE("PATCH method functional verification", "[http_method][patch][verifica
     HttpResponse patch_resp;
     if (client.perform(patch_req, patch_resp)) {
         // PATCH should be accepted (200 or 204)
-        REQUIRE((patch_resp.status == 200 || patch_resp.status == 204));
+        bool valid_patch_status = (patch_resp.status == 200 || patch_resp.status == 204);
+        REQUIRE(valid_patch_status);
     }
 }
 
@@ -263,9 +266,10 @@ TEST_CASE("OPTIONS Allow header parsing", "[http_method][options][parsing]") {
             if (header_name == "allow") {
                 has_allow = true;
                 // Should contain multiple methods
-                REQUIRE(header_value.find("PUT") != std::string::npos ||
-                       header_value.find("DELETE") != std::string::npos ||
-                       header_value.find("PATCH") != std::string::npos);
+                bool has_methods = (header_value.find("PUT") != std::string::npos ||
+                                     header_value.find("DELETE") != std::string::npos ||
+                                     header_value.find("PATCH") != std::string::npos);
+                REQUIRE(has_methods);
                 break;
             }
         }
@@ -289,10 +293,9 @@ TEST_CASE("Multiple dangerous methods", "[http_method][multiple]") {
     for (const auto& finding : findings) {
         if (finding.category == "http_method_vulnerability") {
             method_findings++;
-            REQUIRE(finding.method == "PUT" || 
-                   finding.method == "DELETE" || 
-                   finding.method == "TRACE" || 
-                   finding.method == "PATCH");
+            bool valid_method = (finding.method == "PUT" || finding.method == "DELETE" || 
+                                 finding.method == "TRACE" || finding.method == "PATCH");
+            REQUIRE(valid_method);
         }
     }
     // May find multiple methods

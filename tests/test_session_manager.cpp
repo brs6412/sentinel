@@ -12,7 +12,7 @@
  */
 
 #define CATCH_CONFIG_MAIN
-#include <catch2/catch.hpp>
+#include "catch_amalgamated.hpp"
 #include "core/session_manager.h"
 #include "core/http_client.h"
 #include <filesystem>

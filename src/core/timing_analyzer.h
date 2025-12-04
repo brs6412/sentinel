@@ -123,6 +123,21 @@ public:
     static double calculate_confidence(double deviation_ms,
                                       const TimingBaseline& baseline,
                                       double expected_delay_ms = 0.0);
+    
+    /**
+     * @brief Calculate variance from a vector of measurements (public for testing)
+     * @param measurements Vector of timing measurements
+     * @param mean Mean value
+     * @return Variance
+     */
+    static double calculate_variance(const std::vector<double>& measurements, double mean);
+    
+    /**
+     * @brief Calculate standard deviation from variance (public for testing)
+     * @param variance Variance value
+     * @return Standard deviation
+     */
+    static double calculate_standard_deviation(double variance);
 
 private:
     const HttpClient& client_;
@@ -134,21 +149,6 @@ private:
      * @return Response time in milliseconds, or -1.0 on error
      */
     double measure_request_time(const HttpRequest& req) const;
-    
-    /**
-     * @brief Calculate variance from a vector of measurements
-     * @param measurements Vector of timing measurements
-     * @param mean Mean value
-     * @return Variance
-     */
-    static double calculate_variance(const std::vector<double>& measurements, double mean);
-    
-    /**
-     * @brief Calculate standard deviation from variance
-     * @param variance Variance value
-     * @return Standard deviation
-     */
-    static double calculate_standard_deviation(double variance);
     
     /**
      * @brief Check if timing deviation exceeds threshold

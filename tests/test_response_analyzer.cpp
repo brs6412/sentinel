@@ -12,7 +12,7 @@
  */
 
 #define CATCH_CONFIG_MAIN
-#include <catch2/catch.hpp>
+#include "catch_amalgamated.hpp"
 #include "core/response_analyzer.h"
 #include <map>
 #include <string>
@@ -186,8 +186,9 @@ TEST_CASE("Stack trace detection - Java", "[response_analyzer][stack]") {
     for (const auto& match : result.matches) {
         if (match.type == PatternType::STACK_TRACE && match.framework == "java") {
             found_java_trace = true;
-            REQUIRE(match.evidence.find("at com.example") != std::string::npos ||
-                    match.evidence.find("at java.lang") != std::string::npos);
+            bool has_java_trace = (match.evidence.find("at com.example") != std::string::npos ||
+                                   match.evidence.find("at java.lang") != std::string::npos);
+            REQUIRE(has_java_trace);
         }
     }
     REQUIRE(found_java_trace);
@@ -361,7 +362,7 @@ TEST_CASE("Custom pattern configuration", "[response_analyzer][config]") {
     // Create a test config file
     std::string config_path = "test_response_patterns.yaml";
     std::ofstream config_file(config_path);
-    config_file << R"(patterns:
+    config_file << R"delim(patterns:
   - name: "custom_test_pattern"
     type: "sql_error"
     regex: "Custom SQL Error: (.+)"
@@ -369,7 +370,7 @@ TEST_CASE("Custom pattern configuration", "[response_analyzer][config]") {
     confidence: 0.95
     case_sensitive: false
     description: "Custom test pattern"
-)";
+)delim";
     config_file.close();
     
     ResponseAnalyzer analyzer(config_path);
@@ -414,8 +415,9 @@ TEST_CASE("Summary generation", "[response_analyzer]") {
     AnalysisResult result = analyzer.analyze(response);
     
     REQUIRE_FALSE(result.summary.empty());
-    REQUIRE(result.summary.find("SQL error") != std::string::npos ||
-            result.summary.find("MySQL") != std::string::npos);
+    bool has_sql_info = (result.summary.find("SQL error") != std::string::npos ||
+                         result.summary.find("MySQL") != std::string::npos);
+    REQUIRE(has_sql_info);
 }
 
 TEST_CASE("Database type parsing", "[response_analyzer]") {
@@ -463,7 +465,8 @@ TEST_CASE("Framework identification", "[response_analyzer]") {
                 }
             }
             // At least one should match
-            REQUIRE(found || result.matches.size() > 0);
+            bool has_match = (found || result.matches.size() > 0);
+            REQUIRE(has_match);
         }
     }
 }

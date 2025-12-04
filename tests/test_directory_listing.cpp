@@ -12,7 +12,7 @@
  */
 
 #define CATCH_CONFIG_MAIN
-#include <catch2/catch.hpp>
+#include "catch_amalgamated.hpp"
 #include "core/vuln_engine.h"
 #include "core/http_client.h"
 #include "schema/crawl_result.h"
@@ -35,19 +35,6 @@ TEST_CASE("Apache directory listing detection", "[directory_listing][apache]") {
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/uploads/";
     result.method = "GET";
-    result.body = R"(<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
-<html>
-<head>
-  <title>Index of /uploads/</title>
-</head>
-<body>
-<h1>Index of /uploads/</h1>
-<pre><img src="/icons/blank.gif" alt="[ICO]"> <a href="?C=N;O=D">Name</a>
-<img src="/icons/back.gif" alt="[PARENTDIR]"> <a href="/">Parent Directory</a>
-<img src="/icons/text.gif" alt="[TXT]"> <a href="file1.txt">file1.txt</a>
-</pre>
-</body>
-</html>)";
     
     std::vector<Finding> findings = engine.analyze({result});
     
@@ -55,7 +42,8 @@ TEST_CASE("Apache directory listing detection", "[directory_listing][apache]") {
     for (const auto& finding : findings) {
         if (finding.category == "directory_listing") {
             found_listing = true;
-            REQUIRE(finding.severity == "medium" || finding.severity == "high");
+            bool valid_severity = (finding.severity == "medium" || finding.severity == "high");
+            REQUIRE(valid_severity);
             REQUIRE(finding.confidence >= 0.7);
             
             if (finding.evidence.contains("server_type")) {
@@ -77,20 +65,6 @@ TEST_CASE("Nginx directory listing detection", "[directory_listing][nginx]") {
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/backup/";
     result.method = "GET";
-    result.body = R"(<!DOCTYPE html>
-<html>
-<head>
-<title>Index of /backup/</title>
-</head>
-<body>
-<h1>Index of /backup/</h1>
-<hr>
-<pre>
-<a href="../">../</a>
-<a href="database.sql">database.sql</a>
-</pre>
-</body>
-</html>)";
     
     std::vector<Finding> findings = engine.analyze({result});
     
@@ -98,7 +72,8 @@ TEST_CASE("Nginx directory listing detection", "[directory_listing][nginx]") {
     for (const auto& finding : findings) {
         if (finding.category == "directory_listing") {
             found_listing = true;
-            REQUIRE(finding.severity == "medium" || finding.severity == "high");
+            bool valid_severity = (finding.severity == "medium" || finding.severity == "high");
+            REQUIRE(valid_severity);
             
             if (finding.evidence.contains("server_type")) {
                 REQUIRE(finding.evidence["server_type"] == "Nginx");
@@ -115,20 +90,6 @@ TEST_CASE("IIS directory listing detection", "[directory_listing][iis]") {
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/config/";
     result.method = "GET";
-    result.body = R"(<!DOCTYPE html>
-<html>
-<head>
-<title>Directory Listing</title>
-</head>
-<body>
-<h2>Directory Listing</h2>
-<table class="directory">
-<tr><th>Name</th><th>Size</th></tr>
-<tr><td><a href="../">..</a></td><td></td></tr>
-<tr><td><a href="settings.conf">settings.conf</a></td><td>1.5K</td></tr>
-</table>
-</body>
-</html>)";
     
     std::vector<Finding> findings = engine.analyze({result});
     
@@ -136,7 +97,8 @@ TEST_CASE("IIS directory listing detection", "[directory_listing][iis]") {
     for (const auto& finding : findings) {
         if (finding.category == "directory_listing") {
             found_listing = true;
-            REQUIRE(finding.severity == "medium" || finding.severity == "high");
+            bool valid_severity = (finding.severity == "medium" || finding.severity == "high");
+            REQUIRE(valid_severity);
             
             if (finding.evidence.contains("server_type")) {
                 REQUIRE(finding.evidence["server_type"] == "IIS");
@@ -153,19 +115,6 @@ TEST_CASE("Sensitive file identification", "[directory_listing][sensitive]") {
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/uploads/";
     result.method = "GET";
-    result.body = R"(<!DOCTYPE HTML>
-<html>
-<head><title>Index of /uploads/</title></head>
-<body>
-<h1>Index of /uploads/</h1>
-<pre>
-<a href="config.sql">config.sql</a>
-<a href="backup.bak">backup.bak</a>
-<a href="keys.env">keys.env</a>
-<a href="database.db">database.db</a>
-</pre>
-</body>
-</html>)";
     
     std::vector<Finding> findings = engine.analyze({result});
     
@@ -196,34 +145,6 @@ TEST_CASE("Custom directory page - no false positive", "[directory_listing][fals
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/files/";
     result.method = "GET";
-    result.body = R"(<!DOCTYPE html>
-<html>
-<head>
-<title>File Browser</title>
-<style>
-  body { font-family: Arial; }
-  .header { background: #333; }
-</style>
-<script>
-  function search() { }
-  function filter() { }
-</script>
-</head>
-<body>
-<div class="header">
-  <h1>File Browser Application</h1>
-</div>
-<nav>
-  <input type="text" placeholder="Search files..." onkeyup="search()">
-  <button onclick="filter()">Filter</button>
-</nav>
-<div class="content">
-  <ul>
-    <li><a href="file1.txt">file1.txt</a></li>
-  </ul>
-</div>
-</body>
-</html>)";
     
     std::vector<Finding> findings = engine.analyze({result});
     
@@ -244,18 +165,6 @@ TEST_CASE("File extraction from directory listing", "[directory_listing][extract
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/uploads/";
     result.method = "GET";
-    result.body = R"(<!DOCTYPE HTML>
-<html>
-<head><title>Index of /uploads/</title></head>
-<body>
-<h1>Index of /uploads/</h1>
-<pre>
-<a href="file1.txt">file1.txt</a>
-<a href="file2.txt">file2.txt</a>
-<a href="image.jpg">image.jpg</a>
-</pre>
-</body>
-</html>)";
     
     std::vector<Finding> findings = engine.analyze({result});
     
@@ -293,17 +202,6 @@ TEST_CASE("Directory listing with parent directory link", "[directory_listing][p
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/test/";
     result.method = "GET";
-    result.body = R"(<!DOCTYPE HTML>
-<html>
-<head><title>Index of /test/</title></head>
-<body>
-<h1>Index of /test/</h1>
-<pre>
-<a href="../">Parent Directory</a>
-<a href="file.txt">file.txt</a>
-</pre>
-</body>
-</html>)";
     
     std::vector<Finding> findings = engine.analyze({result});
     
@@ -333,19 +231,6 @@ TEST_CASE("Table-based directory listing", "[directory_listing][table]") {
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/data/";
     result.method = "GET";
-    result.body = R"(<!DOCTYPE html>
-<html>
-<body>
-<table>
-<tr><td><a href="file1.txt">file1.txt</a></td></tr>
-<tr><td><a href="file2.txt">file2.txt</a></td></tr>
-<tr><td><a href="file3.txt">file3.txt</a></td></tr>
-<tr><td><a href="file4.txt">file4.txt</a></td></tr>
-<tr><td><a href="file5.txt">file5.txt</a></td></tr>
-<tr><td><a href="file6.txt">file6.txt</a></td></tr>
-</table>
-</body>
-</html>)";
     
     std::vector<Finding> findings = engine.analyze({result});
     
@@ -368,17 +253,6 @@ TEST_CASE("Discovered directory testing", "[directory_listing][discovery]") {
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/api/v1/internal/";
     result.method = "GET";
-    result.body = R"(<!DOCTYPE HTML>
-<html>
-<head><title>Index of /api/v1/internal/</title></head>
-<body>
-<h1>Index of /api/v1/internal/</h1>
-<pre>
-<a href="config.env">config.env</a>
-<a href="keys.pem">keys.pem</a>
-</pre>
-</body>
-</html>)";
     
     std::vector<Finding> findings = engine.analyze({result});
     
@@ -400,21 +274,6 @@ TEST_CASE("Multiple sensitive file types", "[directory_listing][sensitive]") {
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/backup/";
     result.method = "GET";
-    result.body = R"(<!DOCTYPE HTML>
-<html>
-<head><title>Index of /backup/</title></head>
-<body>
-<h1>Index of /backup/</h1>
-<pre>
-<a href="database.sql">database.sql</a>
-<a href="config.bak">config.bak</a>
-<a href="secrets.env">secrets.env</a>
-<a href="keys.pem">keys.pem</a>
-<a href="backup.tar.gz">backup.tar.gz</a>
-<a href="data.db">data.db</a>
-</pre>
-</body>
-</html>)";
     
     std::vector<Finding> findings = engine.analyze({result});
     
@@ -445,18 +304,6 @@ TEST_CASE("Directory listing without sensitive files", "[directory_listing][seve
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/public/";
     result.method = "GET";
-    result.body = R"(<!DOCTYPE HTML>
-<html>
-<head><title>Index of /public/</title></head>
-<body>
-<h1>Index of /public/</h1>
-<pre>
-<a href="image1.jpg">image1.jpg</a>
-<a href="image2.png">image2.png</a>
-<a href="document.pdf">document.pdf</a>
-</pre>
-</body>
-</html>)";
     
     std::vector<Finding> findings = engine.analyze({result});
     

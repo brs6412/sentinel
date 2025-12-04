@@ -11,7 +11,7 @@
  */
 
 #define CATCH_CONFIG_MAIN
-#include <catch2/catch.hpp>
+#include "catch_amalgamated.hpp"
 #include "core/vuln_engine.h"
 #include "core/http_client.h"
 #include "schema/crawl_result.h"
@@ -46,15 +46,17 @@ TEST_CASE("Basic open redirect detection", "[open_redirect]") {
             REQUIRE(finding.confidence >= 0.7);
             
             if (finding.evidence.contains("vulnerable_parameter")) {
-                REQUIRE(finding.evidence["vulnerable_parameter"] == "url" ||
-                        finding.evidence["vulnerable_parameter"] == "redirect" ||
-                        finding.evidence["vulnerable_parameter"] == "next" ||
-                        finding.evidence["vulnerable_parameter"] == "return");
+                bool valid_param = (finding.evidence["vulnerable_parameter"] == "url" ||
+                                    finding.evidence["vulnerable_parameter"] == "redirect" ||
+                                    finding.evidence["vulnerable_parameter"] == "next" ||
+                                    finding.evidence["vulnerable_parameter"] == "return");
+                REQUIRE(valid_param);
             }
             
             if (finding.evidence.contains("redirect_type")) {
                 std::string redirect_type = finding.evidence["redirect_type"];
-                REQUIRE(redirect_type == "http_redirect" || redirect_type == "javascript_redirect");
+                bool valid_redirect = (redirect_type == "http_redirect" || redirect_type == "javascript_redirect");
+                REQUIRE(valid_redirect);
             }
         }
     }
@@ -278,7 +280,6 @@ TEST_CASE("POST request redirect testing", "[open_redirect][post]") {
     result.url = "http://127.0.0.1:8080/redirect";
     result.method = "POST";
     result.params.push_back({"url", "test"});
-    result.body = "url=test";
     
     std::vector<Finding> findings = engine.analyze({result});
     

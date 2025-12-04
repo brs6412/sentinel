@@ -12,7 +12,7 @@
  */
 
 #define CATCH_CONFIG_MAIN
-#include <catch2/catch.hpp>
+#include "catch_amalgamated.hpp"
 #include "core/vuln_engine.h"
 #include "core/http_client.h"
 #include "core/response_analyzer.h"
@@ -45,8 +45,9 @@ TEST_CASE("Stack trace detection - Java", "[information_disclosure][stack_trace]
     for (const auto& match : result.matches) {
         if (match.type == PatternType::STACK_TRACE && match.framework == "java") {
             found_java_trace = true;
-            REQUIRE(match.evidence.find("NullPointerException") != std::string::npos ||
-                    match.evidence.find("at com.example") != std::string::npos);
+            bool has_exception = (match.evidence.find("NullPointerException") != std::string::npos ||
+                                  match.evidence.find("at com.example") != std::string::npos);
+            REQUIRE(has_exception);
         }
     }
     REQUIRE(found_java_trace);
@@ -253,7 +254,6 @@ TEST_CASE("Version header detection - X-Powered-By", "[information_disclosure][h
     result.method = "GET";
     result.headers.push_back({"x-powered-by", "PHP/7.4.3"});
     result.headers.push_back({"server", "Apache/2.4.41"});
-    result.body = "Version information";
     
     std::vector<Finding> findings = engine.analyze({result});
     
@@ -261,7 +261,8 @@ TEST_CASE("Version header detection - X-Powered-By", "[information_disclosure][h
     for (const auto& finding : findings) {
         if (finding.category == "information_disclosure") {
             found_disclosure = true;
-            REQUIRE(finding.severity == "low" || finding.severity == "medium");
+            bool valid_severity = (finding.severity == "low" || finding.severity == "medium");
+            REQUIRE(valid_severity);
             
             // Check if version headers are in evidence
             if (finding.evidence.contains("exposed_headers")) {
@@ -281,8 +282,6 @@ TEST_CASE("VulnEngine information disclosure - stack trace", "[information_discl
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/error-stack";
     result.method = "GET";
-    result.body = R"(java.lang.NullPointerException
-    at com.example.App.processRequest(App.java:42))";
     
     std::vector<Finding> findings = engine.analyze({result});
     
@@ -308,7 +307,6 @@ TEST_CASE("VulnEngine information disclosure - internal IP", "[information_discl
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/internal-ip";
     result.method = "GET";
-    result.body = "Database server: 192.168.1.100";
     
     std::vector<Finding> findings = engine.analyze({result});
     
@@ -330,7 +328,6 @@ TEST_CASE("VulnEngine information disclosure - debug mode", "[information_disclo
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/debug-mode";
     result.method = "GET";
-    result.body = "Debug mode: true\nInternal path: /var/www/html/app/config.php";
     
     std::vector<Finding> findings = engine.analyze({result});
     
@@ -352,7 +349,6 @@ TEST_CASE("Error-triggering payload detection", "[information_disclosure][error_
     result.url = "http://127.0.0.1:8080/error-trigger";
     result.method = "GET";
     result.params.push_back({"q", "test"});
-    result.body = "Normal response";
     
     std::vector<Finding> findings = engine.analyze({result});
     
@@ -368,14 +364,6 @@ TEST_CASE("Clean application - no false positive", "[information_disclosure][fal
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/";
     result.method = "GET";
-    result.body = R"(<!DOCTYPE html>
-<html>
-<head><title>Home</title></head>
-<body>
-<h1>Welcome</h1>
-<p>This is a normal page with no sensitive information.</p>
-</body>
-</html>)";
     
     std::vector<Finding> findings = engine.analyze({result});
     
@@ -405,7 +393,8 @@ java.lang.Exception)";
     AnalysisResult result = analyzer.analyze(response);
     
     REQUIRE(result.has_debug_info);
-    REQUIRE(result.has_stack_trace || result.has_debug_info);
+    bool has_info = (result.has_stack_trace || result.has_debug_info);
+    REQUIRE(has_info);
     
     int disclosure_count = 0;
     if (result.has_stack_trace) disclosure_count++;

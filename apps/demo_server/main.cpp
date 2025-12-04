@@ -433,7 +433,7 @@ int main() {
     // Custom styled file browser (should NOT be flagged as directory listing)
     res.status = 200;
     res.set_header("Content-Type", "text/html");
-    std::string html = R"(<!DOCTYPE html>
+    std::string html = R"html(<!DOCTYPE html>
 <html>
 <head>
 <title>File Browser</title>
@@ -467,7 +467,7 @@ int main() {
   </div>
 </div>
 </body>
-</html>)";
+</html>)html";
     res.set_content(html, "text/html");
   });
 
