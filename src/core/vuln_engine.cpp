@@ -2018,7 +2018,8 @@ void VulnEngine::checkDirectoryListing(const CrawlResult& result, std::vector<Fi
             
             // Test patterns
             for (const auto& pattern : apache_patterns) {
-                if (std::regex_search(test_resp.body, pattern)) {
+                std::smatch match;
+                if (std::regex_search(test_resp.body, match, pattern)) {
                     test_is_listing = true;
                     test_server_type = "Apache";
                     break;
@@ -2027,7 +2028,8 @@ void VulnEngine::checkDirectoryListing(const CrawlResult& result, std::vector<Fi
             
             if (!test_is_listing) {
                 for (const auto& pattern : nginx_patterns) {
-                    if (std::regex_search(test_resp.body, pattern)) {
+                    std::smatch match;
+                    if (std::regex_search(test_resp.body, match, pattern)) {
                         test_is_listing = true;
                         test_server_type = "Nginx";
                         break;
@@ -2037,7 +2039,8 @@ void VulnEngine::checkDirectoryListing(const CrawlResult& result, std::vector<Fi
             
             if (!test_is_listing) {
                 for (const auto& pattern : iis_patterns) {
-                    if (std::regex_search(test_resp.body, pattern)) {
+                    std::smatch match;
+                    if (std::regex_search(test_resp.body, match, pattern)) {
                         test_is_listing = true;
                         test_server_type = "IIS";
                         break;

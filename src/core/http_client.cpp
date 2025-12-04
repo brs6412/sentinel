@@ -47,7 +47,7 @@ HttpClient::HttpClient(const Options& opts) : opts_(opts) {
     }
 }
 
-/    // Clean up global libcurl state.
+// Clean up global libcurl state.
 HttpClient::~HttpClient() {
     curl_global_cleanup();
 }
