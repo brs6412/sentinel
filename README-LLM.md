@@ -24,7 +24,7 @@ flowchart TD
     StructuredPoE[Structured PoE JSON<br/>summary, why, fix, test, tags]
     TestFiles[Test Files<br/>out/tests/*.md]
     ChainLog[Chain Log<br/>out/reports/sentinel_chain.jsonl]
-    
+
     Finding -->|Finding JSON| PromptBuilder
     PromptBuilder -->|Formatted Prompt| OllamaClient
     OllamaClient -->|HTTP POST /api/generate| OllamaServer
@@ -33,7 +33,7 @@ flowchart TD
     PoERenderer -->|Extract Fields| StructuredPoE
     StructuredPoE -->|Generate| TestFiles
     StructuredPoE -->|Log Finding| ChainLog
-    
+
     style Finding fill:#e1f5ff
     style PromptBuilder fill:#fff4e1
     style OllamaClient fill:#e8f5e9
@@ -53,6 +53,160 @@ flowchart TD
 5. **LLM Response** is parsed and validated
 6. **PoE Renderer** extracts structured fields (summary, why, fix, test, tags)
 7. **Structured PoE** is used to generate test files and log to chain
+
+## File Interaction Diagram
+
+The following diagram shows how all relevant source files interact with each other in the Sentinel codebase:
+
+```mermaid
+graph TB
+    subgraph "Main Entry Points"
+        Main[src/main.cpp<br/>Main Scanner]
+        LLMMain[apps/llm/main.cpp<br/>LLM CLI Tool]
+        SentinelLLM[src/sentinel_llm.cpp<br/>LLM Pipeline]
+    end
+
+    subgraph "Core Components"
+        HttpClient[src/core/http_client.cpp<br/>HTTP Client<br/>libcurl wrapper]
+        Crawler[src/core/crawler.cpp<br/>Web Crawler<br/>Link/Form Discovery]
+        VulnEngine[src/core/vuln_engine.cpp<br/>Vulnerability Engine<br/>Security Analysis]
+        SessionMgr[src/core/session_manager.cpp<br/>Session Manager<br/>Authentication]
+    end
+
+    subgraph "Analysis Modules"
+        ResponseAnalyzer[src/core/response_analyzer.cpp<br/>Response Analyzer<br/>Pattern Detection]
+        TimingAnalyzer[src/core/timing_analyzer.cpp<br/>Timing Analyzer<br/>Blind Injection]
+        BaselineComp[src/core/baseline_comparator.cpp<br/>Baseline Comparator<br/>Behavioral Analysis]
+    end
+
+    subgraph "LLM Components"
+        OllamaClient[src/llm/ollama_client.h<br/>Ollama Client<br/>HTTP Client for LLM]
+        PromptTemplates[src/llm/prompt_templates.h<br/>Prompt Templates<br/>PoE Generation]
+        PoERenderer[src/llm/poe_renderer.h<br/>PoE Renderer<br/>Response Parsing]
+    end
+
+    subgraph "Supporting Libraries"
+        ChainLogger[src/logging/chain.cpp<br/>Chain Logger<br/>Tamper-Evident Logging]
+        Artifacts[src/artifacts/artifacts.cpp<br/>Artifacts Generator<br/>Repro Scripts]
+        Policy[src/budget/policy.cpp<br/>Policy Engine<br/>Risk Scoring]
+    end
+
+    subgraph "Schema"
+        FindingSchema[schema/finding.h<br/>Finding Schema]
+        CrawlSchema[schema/crawl_result.h<br/>Crawl Result Schema]
+    end
+
+    subgraph "Configuration"
+        AuthConfig[config/auth_config.yaml<br/>Auth Configuration]
+        PolicyConfig[config/policy.yaml<br/>Risk Policy]
+        PatternConfig[config/response_patterns.yaml<br/>Pattern Config]
+    end
+
+    %% Main flow
+    Main --> HttpClient
+    Main --> Crawler
+    Main --> VulnEngine
+    Main --> ChainLogger
+    Main --> Artifacts
+    Main --> Policy
+
+    %% Crawler dependencies
+    Crawler --> HttpClient
+    Crawler --> CrawlSchema
+
+    %% VulnEngine dependencies
+    VulnEngine --> HttpClient
+    VulnEngine --> SessionMgr
+    VulnEngine --> ResponseAnalyzer
+    VulnEngine --> TimingAnalyzer
+    VulnEngine --> BaselineComp
+    VulnEngine --> FindingSchema
+    VulnEngine --> CrawlSchema
+
+    %% Analysis module dependencies
+    ResponseAnalyzer --> PatternConfig
+    TimingAnalyzer --> HttpClient
+    BaselineComp --> ResponseAnalyzer
+    BaselineComp --> HttpClient
+
+    %% Session manager dependencies
+    SessionMgr --> HttpClient
+    SessionMgr --> AuthConfig
+
+    %% LLM flow
+    LLMMain --> OllamaClient
+    SentinelLLM --> OllamaClient
+    OllamaClient --> PromptTemplates
+    PromptTemplates --> PoERenderer
+    PoERenderer --> Artifacts
+    PoERenderer --> ChainLogger
+
+    %% Configuration dependencies
+    VulnEngine -.->|reads| PolicyConfig
+    SessionMgr -.->|reads| AuthConfig
+    ResponseAnalyzer -.->|reads| PatternConfig
+
+    %% Artifacts dependencies
+    Artifacts --> FindingSchema
+    Artifacts --> ChainLogger
+
+    %% Policy dependencies
+    Policy -.->|reads| PolicyConfig
+
+    style Main fill:#e1f5ff
+    style VulnEngine fill:#fff3e0
+    style HttpClient fill:#fff4e1
+    style Crawler fill:#e8f5e9
+    style SessionMgr fill:#f3e5f5
+    style ResponseAnalyzer fill:#e3f2fd
+    style TimingAnalyzer fill:#e3f2fd
+    style BaselineComp fill:#e3f2fd
+    style OllamaClient fill:#c8e6c9
+    style ChainLogger fill:#f3e5f5
+    style Artifacts fill:#fff4e1
+    style Policy fill:#fff4e1
+```
+
+**Key Interactions:**
+
+1. **Main Scanner Flow** (`src/main.cpp`):
+   - Orchestrates the entire scanning process
+   - Uses `Crawler` to discover endpoints
+   - Passes results to `VulnEngine` for analysis
+   - Uses `ChainLogger` to log findings
+   - Uses `Artifacts` to generate reproduction scripts
+   - Uses `Policy` to evaluate risk scores
+
+2. **Vulnerability Engine** (`src/core/vuln_engine.cpp`):
+   - Central component that coordinates all vulnerability checks
+   - Uses `HttpClient` for making test requests
+   - Uses `SessionMgr` for authenticated requests
+   - Delegates to specialized analyzers (`ResponseAnalyzer`, `TimingAnalyzer`, `BaselineComp`)
+   - Reads configuration from `config/policy.yaml`
+
+3. **Analysis Modules**:
+   - **ResponseAnalyzer**: Detects patterns in HTTP responses (SQL errors, stack traces, etc.)
+   - **TimingAnalyzer**: Detects blind injection via timing analysis
+   - **BaselineComp**: Compares responses to detect behavioral anomalies
+   - All use `HttpClient` for making requests
+
+4. **Session Management**:
+   - `SessionMgr` uses `HttpClient` for authentication requests
+   - Reads credentials from `config/auth_config.yaml`
+   - Injects cookies/headers into requests for `VulnEngine`
+
+5. **LLM Integration**:
+   - `OllamaClient` communicates with Ollama server
+   - `PromptTemplates` formats findings into prompts
+   - `PoERenderer` parses LLM responses
+   - Results feed into `Artifacts` and `ChainLogger`
+
+6. **Data Flow**:
+   - `Crawler` produces `CrawlResult` objects
+   - `VulnEngine` analyzes and produces `Finding` objects
+   - `Artifacts` generates test files from findings
+   - `ChainLogger` creates tamper-evident logs
+   - `Policy` evaluates risk scores from findings
 
 ## Installation
 
@@ -93,7 +247,7 @@ ollama serve
 
 The server runs on `http://127.0.0.1:11434` by default.
 
-### Configure Host (Optional)
+### Configure Host
 
 If your Ollama server is on a different host/port:
 
@@ -172,10 +326,10 @@ class OllamaClient {
 public:
     // Constructor - reads OLLAMA_HOST env var if host empty
     explicit OllamaClient(const std::string& host = "");
-    
+
     // Check if server is reachable
     bool IsHealthy();
-    
+
     // Generate text using specified model
     std::string Generate(
         const std::string& model,

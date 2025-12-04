@@ -1,6 +1,16 @@
 # Sentinel
 
-Sentinel is a Dynamic Application Security Testing (DAST) system for web applications and APIs. It detects and reproduces vulnerabilities with verifiable proofs, CI integration, and LLM-assisted payload generation.
+Sentinel is a comprehensive Dynamic Application Security Testing (DAST) system designed for web applications and APIs. It provides automated security scanning with intelligent vulnerability detection, verifiable proof-of-exploit generation, seamless CI/CD integration, and LLM-assisted test payload generation. Sentinel helps security teams identify and remediate security issues before they reach production.
+
+## Key Features
+
+- **Comprehensive Vulnerability Detection**: Identifies security headers misconfigurations, unsafe cookies, CORS issues, XSS, CSRF, IDOR, information disclosure, open redirects, directory listings, and dangerous HTTP methods
+- **Authenticated Scanning**: Supports form-based, API-based (bearer tokens/API keys), and OAuth authentication for testing protected endpoints
+- **Advanced Analysis**: Includes response pattern analysis, timing-based blind injection detection, and baseline comparison for behavioral anomaly detection
+- **Tamper-Evident Audit Logging**: Hash-chained log files ensure scan integrity and provide audit trails for compliance
+- **Risk Budget Management**: Configurable risk scoring and thresholds for CI/CD gating
+- **LLM Integration**: Optional integration with Ollama for intelligent test variation generation and proof-of-exploit explanations
+- **Reproducible Findings**: Generates test scripts and remediation instructions for each discovered vulnerability
 
 ## Architecture
 
@@ -67,7 +77,7 @@ flowchart TD
 - nlohmann/json (JSON handling)
 - libssl development headers and library installed
 - jq, curl (for demo scripts)
-- Ollama (optional, for LLM features)
+- Ollama (for LLM features)
 
 On Debian/Ubuntu:
 ```bash
@@ -203,11 +213,21 @@ Total risk points: 17 (warn: 5, block: 10)
 ```
 
 **What happens:**
-1. **Crawling**: Discovers URLs and endpoints by following links and parsing HTML
-2. **Generating findings**: Analyzes responses for security issues (missing headers, unsafe cookies, CORS misconfigurations, etc.)
-3. **Generating artifacts**: Creates reproduction scripts and test files
-4. **Chain logging**: Logs each finding to tamper-evident chain log
-5. **Budget evaluation**: Calculates risk score and determines exit code
+1. **Crawling**: The crawler explores the target application by following links, parsing HTML forms, and discovering endpoints. It respects robots.txt and can use OpenAPI specifications to discover additional API endpoints.
+2. **Generating findings**: The vulnerability engine analyzes each discovered endpoint for multiple security issues including:
+   - Missing or misconfigured security headers (X-Frame-Options, CSP, HSTS, etc.)
+   - Unsafe cookie settings (missing HttpOnly, Secure, SameSite flags)
+   - CORS misconfigurations (overly permissive origins)
+   - Reflected XSS vulnerabilities
+   - Missing CSRF protection
+   - Insecure direct object references (IDOR)
+   - Information disclosure (stack traces, internal paths, version info)
+   - Open redirect vulnerabilities
+   - Directory listing exposures
+   - Dangerous HTTP method exposures (PUT, DELETE, TRACE, PATCH)
+3. **Generating artifacts**: Creates reproduction scripts (shell and C++), test files with remediation steps, and structured finding data
+4. **Chain logging**: Each finding is logged to a tamper-evident hash-chained log file for audit and compliance purposes
+5. **Budget evaluation**: Calculates risk score based on severity and category weights, then determines exit code based on configured thresholds
 
 #### Scan with OpenAPI Specification
 
@@ -329,6 +349,270 @@ The demo includes a test server with intentionally insecure endpoints:
 
 Use these to test the scanner and see the difference between secure and insecure configurations.
 
+## Vulnerability Detection Capabilities
+
+Sentinel's vulnerability engine performs comprehensive security analysis across multiple categories:
+
+### Security Headers
+- Checks for presence and correct configuration of security headers (X-Frame-Options, CSP, HSTS, X-Content-Type-Options, etc.)
+- Validates header values for security best practices
+
+### Cookie Security
+- Detects missing HttpOnly, Secure, and SameSite flags
+- Identifies overly broad cookie scopes
+
+### CORS Configuration
+- Tests for overly permissive Access-Control-Allow-Origin settings
+- Validates CORS header combinations
+
+### Injection Vulnerabilities
+- **Reflected XSS**: Tests for cross-site scripting vulnerabilities
+- **Blind SQL Injection**: Uses timing analysis to detect time-based SQL injection
+- **Command Injection**: Detects command execution vulnerabilities via timing anomalies
+
+### Authentication & Authorization
+- **CSRF**: Identifies missing CSRF protection on state-changing operations
+- **IDOR**: Tests for insecure direct object references
+
+### Information Disclosure
+- Detects stack traces (Java, .NET, Python, PHP, Node.js, Ruby)
+- Identifies internal file paths and private IP addresses
+- Finds exposed version information in headers and responses
+- Detects debug mode indicators
+
+### Open Redirects
+- Tests common redirect parameters with external domain payloads
+- Detects both HTTP and JavaScript-based redirects
+- Tests bypass techniques (protocol-relative URLs, encoded slashes)
+
+### Directory Listings
+- Detects Apache, Nginx, and IIS directory listings
+- Identifies sensitive files in exposed directories
+- Differentiates between raw listings and custom file browsers
+
+### HTTP Method Vulnerabilities
+- Tests OPTIONS to enumerate allowed methods
+- Verifies functionality of dangerous methods (PUT, DELETE, TRACE, PATCH)
+- Only reports methods that are actually functional (not just listed)
+
+### Advanced Analysis
+- **Response Pattern Analysis**: Automatically detects SQL errors, command output, stack traces, and debug information
+- **Timing Analysis**: Establishes baselines and detects timing anomalies for blind injection detection
+- **Baseline Comparison**: Compares normal vs. payload-injected responses to detect behavioral differences
+
+## Session Management
+
+Sentinel supports authenticated scanning of web applications that require login. The Session Management module handles authentication credentials and maintains authenticated sessions throughout scans, enabling comprehensive testing of protected endpoints.
+
+### Features
+
+- **Form-based authentication**: Automatically parses login forms, extracts CSRF tokens, and submits credentials
+- **API-based authentication**: Supports bearer tokens and API keys
+- **OAuth authentication**: Supports OAuth 2.0 client credentials flow
+- **Session persistence**: Automatically injects session cookies and tokens into subsequent requests
+- **Automatic re-authentication**: Detects session expiration (401/403 responses) and re-authenticates automatically
+- **Multi-user support**: Maintains separate sessions for multiple users for role-based testing
+
+### Configuration
+
+Create a `config/auth_config.yaml` file to configure authentication:
+
+```yaml
+# Authentication configuration for Sentinel
+users:
+  # Form-based authentication
+  - user_id: "admin"
+    auth_type: "form_based"
+    username: "admin"
+    password: "admin123"
+    login_url: "http://127.0.0.1:8080/login"
+  
+  # Bearer token authentication
+  - user_id: "api_user"
+    auth_type: "api_bearer"
+    token: "your_bearer_token_here"
+    api_endpoint: "https://api.example.com/validate"
+  
+  # API key authentication
+  - user_id: "api_key_user"
+    auth_type: "api_key"
+    token: "your_api_key_here"
+    api_endpoint: "https://api.example.com/validate"
+    header_X-API-Key: "${token}"  # Custom header with token placeholder
+  
+  # OAuth authentication
+  - user_id: "oauth_user"
+    auth_type: "oauth"
+    oauth_client_id: "your_client_id"
+    oauth_client_secret: "your_client_secret"
+    oauth_token_url: "https://oauth.example.com/token"
+    oauth_scope: "read write"
+```
+
+### Usage Examples
+
+#### Using SessionManager in Code
+
+```cpp
+#include "core/session_manager.h"
+#include "core/http_client.h"
+#include "core/vuln_engine.h"
+
+// Create HTTP client
+HttpClient::Options opts;
+HttpClient client(opts);
+
+// Create session manager
+SessionManager session_manager(client);
+
+// Load configuration
+session_manager.load_config("config/auth_config.yaml");
+
+// Authenticate a user
+Credentials creds;
+creds.auth_type = AuthType::FORM_BASED;
+creds.username = "admin";
+creds.password = "admin123";
+creds.login_url = "http://127.0.0.1:8080/login";
+
+if (session_manager.authenticate("admin", creds)) {
+    std::cout << "Authentication successful!" << std::endl;
+    
+    // Get cookies for requests
+    auto cookies = session_manager.get_cookies("admin");
+    
+    // Get auth headers
+    auto headers = session_manager.get_auth_headers("admin");
+}
+
+// Use with VulnEngine for authenticated scanning
+VulnEngine engine(client, 0.7, &session_manager);
+// VulnEngine will automatically inject session cookies/headers into requests
+```
+
+#### Form-based Authentication Flow
+
+1. **Fetch login page**: SessionManager fetches the login form
+2. **Extract CSRF token**: Automatically finds CSRF tokens in hidden form fields or meta tags
+3. **Submit credentials**: POSTs username, password, and CSRF token
+4. **Extract session cookies**: Parses Set-Cookie headers and stores them
+5. **Inject cookies**: Subsequent requests automatically include session cookies
+
+#### API-based Authentication
+
+For bearer token or API key authentication:
+
+```cpp
+Credentials creds;
+creds.auth_type = AuthType::API_BEARER;
+creds.token = "your_token_here";
+
+session_manager.authenticate("api_user", creds);
+
+// All subsequent requests will include: Authorization: Bearer your_token_here
+```
+
+#### Multi-user Session Management
+
+Maintain separate sessions for different users:
+
+```cpp
+// Authenticate admin user
+Credentials admin_creds;
+admin_creds.auth_type = AuthType::FORM_BASED;
+admin_creds.username = "admin";
+admin_creds.password = "admin123";
+admin_creds.login_url = "http://example.com/login";
+session_manager.authenticate("admin", admin_creds);
+
+// Authenticate regular user
+Credentials user_creds;
+user_creds.auth_type = AuthType::FORM_BASED;
+user_creds.username = "user";
+user_creds.password = "user123";
+user_creds.login_url = "http://example.com/login";
+session_manager.authenticate("user", user_creds);
+
+// Switch between sessions
+auto admin_cookies = session_manager.get_cookies("admin");
+auto user_cookies = session_manager.get_cookies("user");
+```
+
+#### Session Expiration Handling
+
+SessionManager automatically detects expired sessions and re-authenticates:
+
+```cpp
+// Make a request
+HttpRequest req;
+req.url = "http://example.com/protected";
+HttpResponse resp;
+client.perform(req, resp);
+
+// Check if session expired
+if (resp.status == 401 || resp.status == 403) {
+    // SessionManager will automatically re-authenticate if handle_session_expiration is called
+    session_manager.handle_session_expiration("admin", resp, admin_creds);
+    
+    // Retry the request
+    client.perform(req, resp);
+}
+```
+
+### Integration with VulnEngine
+
+VulnEngine automatically uses SessionManager when provided:
+
+```cpp
+HttpClient client(opts);
+SessionManager session_manager(client);
+session_manager.load_config("config/auth_config.yaml");
+
+// Authenticate before scanning
+Credentials creds;
+// ... configure creds ...
+session_manager.authenticate("admin", creds);
+
+// Create VulnEngine with session manager
+VulnEngine engine(client, 0.7, &session_manager);
+
+// All vulnerability checks will use authenticated sessions
+auto findings = engine.analyze(crawl_results);
+```
+
+### Testing
+
+Run the session manager tests:
+
+```bash
+cd build
+ctest -R test_session_manager -V
+```
+
+Or run the full test suite:
+
+```bash
+make test
+```
+
+### Demo Server Login Endpoint
+
+The demo server includes a login endpoint for testing:
+
+```bash
+# Start demo server
+./build/apps/demo_server/demo_server
+
+# Login endpoint: http://127.0.0.1:8080/login
+# Protected endpoint: http://127.0.0.1:8080/protected
+```
+
+Example authentication flow:
+
+1. GET `/login` - Returns login form with CSRF token
+2. POST `/login` - Submits credentials, returns session cookie
+3. GET `/protected` - Requires session cookie, returns protected content
+
 ## Configuration
 
 ### Risk Budget Policy
@@ -391,9 +675,43 @@ This means the chain log has been modified. Possible causes:
 
 If verification fails, the log should be considered compromised and a new scan should be run.
 
+## Vulnerability Detection Details
+
+### How Sentinel Detects Vulnerabilities
+
+Sentinel uses a multi-layered approach to vulnerability detection:
+
+1. **Static Analysis**: Examines HTTP headers, cookies, and response structure
+2. **Pattern Matching**: Uses regex patterns to detect error messages, stack traces, and sensitive information
+3. **Behavioral Analysis**: Compares baseline responses against payload-injected responses
+4. **Timing Analysis**: Detects blind injection vulnerabilities by measuring response time anomalies
+5. **Functional Testing**: Verifies that dangerous HTTP methods actually work, not just that they're listed
+
+### Detection Confidence
+
+Each finding includes a confidence score (0.0-1.0) that indicates how certain Sentinel is about the vulnerability:
+
+- **High (0.9-1.0)**: Clear evidence, unambiguous vulnerability
+- **Medium (0.7-0.89)**: Strong indicators, likely vulnerability
+- **Low (0.5-0.69)**: Possible vulnerability, requires manual verification
+
+Findings below the configured confidence threshold (default 0.7) are filtered out to reduce false positives.
+
+### False Positive Prevention
+
+Sentinel includes several mechanisms to minimize false positives:
+
+- **Confidence Thresholds**: Only reports findings above a configurable confidence level
+- **Context Validation**: Checks surrounding context before flagging patterns (e.g., HTML comments)
+- **Functional Verification**: Tests that vulnerabilities actually work, not just that they're theoretically possible
+- **Custom Page Detection**: Differentiates between raw directory listings and styled file browsers
+- **Whitelist Validation**: Recognizes when redirects are properly validated against whitelists
+
 ## Next Steps
 
 - Review findings in `artifacts/vuln_findings.jsonl`
 - Run test commands from `out/tests/*.md` files
 - Check chain log integrity with `sentinel verify`
 - Integrate into CI/CD pipeline using exit codes
+- Configure authentication in `config/auth_config.yaml` for authenticated scanning
+- Customize detection patterns in `config/response_patterns.yaml`

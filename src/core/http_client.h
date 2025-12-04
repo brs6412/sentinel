@@ -59,6 +59,13 @@ public:
      * @return true if request succeeded, false on error
      */
     bool perform(const HttpRequest& req, HttpResponse& resp) const;
+    
+    /**
+     * @brief Build a Cookie header string from a map of cookies
+     * @param cookies Map of cookie name -> value
+     * @return Cookie header value string (e.g., "name1=value1; name2=value2")
+     */
+    static std::string build_cookie_header(const std::map<std::string, std::string>& cookies);
 
 private:
     Options opts_;

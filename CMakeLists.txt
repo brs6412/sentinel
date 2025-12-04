@@ -29,6 +29,10 @@ add_library(core
     src/core/http_client.cpp
     src/core/crawler.cpp
     src/core/vuln_engine.cpp
+    src/core/session_manager.cpp
+    src/core/response_analyzer.cpp
+    src/core/timing_analyzer.cpp
+    src/core/baseline_comparator.cpp
 )
 target_include_directories(core PUBLIC
     $<TARGET_PROPERTY:nlohmann_json::nlohmann_json,INTERFACE_INCLUDE_DIRECTORIES>
@@ -154,6 +158,126 @@ if(TARGET test_poe_renderer)
     add_test(NAME test_poe_renderer COMMAND test_poe_renderer)
     set_tests_properties(test_poe_renderer PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
     set_tests_properties(test_poe_renderer PROPERTIES LABELS "llm;poe")
+endif()
+
+# Session manager tests
+add_executable(test_session_manager tests/test_session_manager.cpp third_party/catch2/catch_amalgamated.cpp)
+set_source_files_properties(third_party/catch2/catch_amalgamated.cpp PROPERTIES COMPILE_DEFINITIONS "CATCH_CONFIG_MAIN")
+target_include_directories(test_session_manager PRIVATE
+    ${CMAKE_SOURCE_DIR}/third_party/catch2
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}
+)
+target_link_libraries(test_session_manager PRIVATE core)
+if(TARGET test_session_manager)
+    add_test(NAME test_session_manager COMMAND test_session_manager)
+    set_tests_properties(test_session_manager PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    set_tests_properties(test_session_manager PROPERTIES LABELS "session;auth")
+endif()
+
+# Response analyzer tests
+add_executable(test_response_analyzer tests/test_response_analyzer.cpp third_party/catch2/catch_amalgamated.cpp)
+set_source_files_properties(third_party/catch2/catch_amalgamated.cpp PROPERTIES COMPILE_DEFINITIONS "CATCH_CONFIG_MAIN")
+target_include_directories(test_response_analyzer PRIVATE
+    ${CMAKE_SOURCE_DIR}/third_party/catch2
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}
+)
+target_link_libraries(test_response_analyzer PRIVATE core)
+if(TARGET test_response_analyzer)
+    add_test(NAME test_response_analyzer COMMAND test_response_analyzer)
+    set_tests_properties(test_response_analyzer PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    set_tests_properties(test_response_analyzer PROPERTIES LABELS "response;pattern;analysis")
+endif()
+
+# Timing analyzer tests
+add_executable(test_timing_analyzer tests/test_timing_analyzer.cpp third_party/catch2/catch_amalgamated.cpp)
+set_source_files_properties(third_party/catch2/catch_amalgamated.cpp PROPERTIES COMPILE_DEFINITIONS "CATCH_CONFIG_MAIN")
+target_include_directories(test_timing_analyzer PRIVATE
+    ${CMAKE_SOURCE_DIR}/third_party/catch2
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}
+)
+target_link_libraries(test_timing_analyzer PRIVATE core)
+if(TARGET test_timing_analyzer)
+    add_test(NAME test_timing_analyzer COMMAND test_timing_analyzer)
+    set_tests_properties(test_timing_analyzer PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    set_tests_properties(test_timing_analyzer PROPERTIES LABELS "timing;blind;injection")
+endif()
+
+# Baseline comparator tests
+add_executable(test_baseline_comparator tests/test_baseline_comparator.cpp third_party/catch2/catch_amalgamated.cpp)
+set_source_files_properties(third_party/catch2/catch_amalgamated.cpp PROPERTIES COMPILE_DEFINITIONS "CATCH_CONFIG_MAIN")
+target_include_directories(test_baseline_comparator PRIVATE
+    ${CMAKE_SOURCE_DIR}/third_party/catch2
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}
+)
+target_link_libraries(test_baseline_comparator PRIVATE core)
+if(TARGET test_baseline_comparator)
+    add_test(NAME test_baseline_comparator COMMAND test_baseline_comparator)
+    set_tests_properties(test_baseline_comparator PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    set_tests_properties(test_baseline_comparator PROPERTIES LABELS "baseline;comparison;behavioral")
+endif()
+
+# Information disclosure tests
+add_executable(test_information_disclosure tests/test_information_disclosure.cpp third_party/catch2/catch_amalgamated.cpp)
+set_source_files_properties(third_party/catch2/catch_amalgamated.cpp PROPERTIES COMPILE_DEFINITIONS "CATCH_CONFIG_MAIN")
+target_include_directories(test_information_disclosure PRIVATE
+    ${CMAKE_SOURCE_DIR}/third_party/catch2
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}
+)
+target_link_libraries(test_information_disclosure PRIVATE core)
+if(TARGET test_information_disclosure)
+    add_test(NAME test_information_disclosure COMMAND test_information_disclosure)
+    set_tests_properties(test_information_disclosure PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    set_tests_properties(test_information_disclosure PROPERTIES LABELS "information;disclosure;security")
+endif()
+
+# Open redirect tests
+add_executable(test_open_redirect tests/test_open_redirect.cpp third_party/catch2/catch_amalgamated.cpp)
+set_source_files_properties(third_party/catch2/catch_amalgamated.cpp PROPERTIES COMPILE_DEFINITIONS "CATCH_CONFIG_MAIN")
+target_include_directories(test_open_redirect PRIVATE
+    ${CMAKE_SOURCE_DIR}/third_party/catch2
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}
+)
+target_link_libraries(test_open_redirect PRIVATE core)
+if(TARGET test_open_redirect)
+    add_test(NAME test_open_redirect COMMAND test_open_redirect)
+    set_tests_properties(test_open_redirect PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    set_tests_properties(test_open_redirect PROPERTIES LABELS "open;redirect;phishing")
+endif()
+
+# Directory listing tests
+add_executable(test_directory_listing tests/test_directory_listing.cpp third_party/catch2/catch_amalgamated.cpp)
+set_source_files_properties(third_party/catch2/catch_amalgamated.cpp PROPERTIES COMPILE_DEFINITIONS "CATCH_CONFIG_MAIN")
+target_include_directories(test_directory_listing PRIVATE
+    ${CMAKE_SOURCE_DIR}/third_party/catch2
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}
+)
+target_link_libraries(test_directory_listing PRIVATE core)
+if(TARGET test_directory_listing)
+    add_test(NAME test_directory_listing COMMAND test_directory_listing)
+    set_tests_properties(test_directory_listing PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    set_tests_properties(test_directory_listing PROPERTIES LABELS "directory;listing;information_disclosure")
+endif()
+
+# HTTP method vulnerability tests
+add_executable(test_http_method_vulnerabilities tests/test_http_method_vulnerabilities.cpp third_party/catch2/catch_amalgamated.cpp)
+set_source_files_properties(third_party/catch2/catch_amalgamated.cpp PROPERTIES COMPILE_DEFINITIONS "CATCH_CONFIG_MAIN")
+target_include_directories(test_http_method_vulnerabilities PRIVATE
+    ${CMAKE_SOURCE_DIR}/third_party/catch2
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}
+)
+target_link_libraries(test_http_method_vulnerabilities PRIVATE core)
+if(TARGET test_http_method_vulnerabilities)
+    add_test(NAME test_http_method_vulnerabilities COMMAND test_http_method_vulnerabilities)
+    set_tests_properties(test_http_method_vulnerabilities PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    set_tests_properties(test_http_method_vulnerabilities PROPERTIES LABELS "http;method;vulnerability")
 endif()
 
 # Ensure top-level CTest file generation
