@@ -146,9 +146,20 @@ int generate_findings(HttpClient& client, std::string run_id, std::vector<CrawlR
     }
 
     // Generate Catch2 tests
+    auto target = "./artifacts/latest_security_tests.cpp";
+    auto source = "./artifacts/repro_" + run_id + ".cpp";
     if (artifacts::ArtifactGenerator::generate_catch2_tests(
-        findings, run_id, "./artifacts/repro_" + run_id + ".cpp")) {
+        findings, run_id, source)) {
         std::cout << "  ✓ repro_" << run_id << ".cpp\n";
+        try {
+            if (std::filesystem::exists(target)) {
+                std::filesystem::remove(target);
+            }
+            std::filesystem::create_symlink(source, target);
+            std::cout << "  ✓ symlinked latest_security_tests.cpp\n";
+        } catch (const std::filesystem::filesystem_error& e) {
+            std::cerr << "Error: " << e.what() << '\n';
+        }
     }
 
     // Generate markdown test files
