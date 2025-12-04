@@ -33,7 +33,7 @@ static size_t header_callback(char* buffer, size_t size, size_t nitems, void* us
         std::string value(hv.substr(val_start, val_end - val_start));
 
         std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c){ return std::tolower(c); });
-        
+
         headers->emplace_back(std::move(name), std::move(value));
     }
     return total;
@@ -47,9 +47,27 @@ HttpClient::HttpClient(const Options& opts) : opts_(opts) {
     }
 }
 
-/// Clean up global libcurl state.
+// Clean up global libcurl state.
 HttpClient::~HttpClient() {
     curl_global_cleanup();
+}
+
+// Build Cookie header string from map of cookies
+std::string HttpClient::build_cookie_header(const std::map<std::string, std::string>& cookies) {
+    if (cookies.empty()) {
+        return "";
+    }
+
+    std::ostringstream oss;
+    bool first = true;
+    for (const auto& [name, value] : cookies) {
+        if (!first) {
+            oss << "; ";
+        }
+        oss << name << "=" << value;
+        first = false;
+    }
+    return oss.str();
 }
 
 /// Execute an HTTP request and populate a response object.
@@ -122,7 +140,7 @@ bool HttpClient::perform(const HttpRequest& req, HttpResponse& resp) const {
     resp.body = std::move(body);
     resp.body_bytes = resp.body.size();
     resp.headers = std::move(resp_headers);
-    
+
     // Cleanup
     if (curl_headers) curl_slist_free_all(curl_headers);
     curl_easy_cleanup(curl);
