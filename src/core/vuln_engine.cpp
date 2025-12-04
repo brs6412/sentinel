@@ -466,12 +466,11 @@ void VulnEngine::checkReflectedXSS(const CrawlResult& result, std::vector<Findin
             f.confidence = best_conf;
             f.remediation_id = "xss";
             std::ostringstream curl;
-            std::string injected_curl = url_encode(make_marker(param));
             std::string curl_url = build_url_with_param(
                     result.url,
                     result.params,
                     param,
-                    injected_curl
+                    best_evidence["injected"]
             );
             curl << "curl -i -X GET " << curl_url << "";
             f.evidence["repro_curl"] = curl.str();

@@ -156,5 +156,25 @@ if(TARGET test_poe_renderer)
     set_tests_properties(test_poe_renderer PROPERTIES LABELS "llm;poe")
 endif()
 
+# Auto-generated security regression tests
+if(EXISTS ${CMAKE_SOURCE_DIR}/artifacts/latest_security_tests.cpp)
+    add_executable(test_security_findings artifacts/latest_security_tests.cpp)
+    target_include_directories(test_security_findings PRIVATE
+        ${CMAKE_SOURCE_DIR}/third_party/catch2
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}
+    )
+    target_link_libraries(test_security_findings PRIVATE
+        core
+        nlohmann_json::nlohmann_json
+        CURL::libcurl
+    )
+    add_test(NAME test_security_findings COMMAND test_security_findings)
+    set_tests_properties(test_security_findings PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        LABELS "security;regression"
+    )
+endif()
+
 # Ensure top-level CTest file generation
 file(WRITE ${CMAKE_BINARY_DIR}/CTestCustom.cmake "## sentinel custom\n")
