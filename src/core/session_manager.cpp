@@ -439,7 +439,7 @@ std::string SessionManager::extract_csrf_token(const std::string& html) const {
         std::regex(R"(<input[^>]*name=["']_token["'][^>]*value=["']([^"']+)["'])", std::regex::icase),
         std::regex(R"(<input[^>]*name=["']authenticity_token["'][^>]*value=["']([^"']+)["'])", std::regex::icase),
         std::regex(R"(<meta[^>]*name=["']csrf-token["'][^>]*content=["']([^"']+)["'])", std::regex::icase),
-        std::regex(R"("csrf_token"\s*:\s*"([^"]+)")", std::regex::icase),
+        std::regex(R"delim("csrf_token"\s*:\s*"([^"]+)")delim", std::regex::icase),
     };
     
     for (const auto& pattern : patterns) {

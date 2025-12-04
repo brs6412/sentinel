@@ -27,6 +27,15 @@ public:
     VulnEngine(const HttpClient& client, double confidence_threshold = 0.7, SessionManager* session_manager = nullptr);
 
     /**
+     * @brief Destructor for VulnEngine
+     * 
+     * Explicitly defined to ensure proper destruction of unique_ptr members
+     * (ResponseAnalyzer, TimingAnalyzer, BaselineComparator) in the .cpp file
+     * where their full definitions are available.
+     */
+    ~VulnEngine();
+
+    /**
      * @brief Analyze crawled pages and generate security findings
      * @param crawl_results Pages and endpoints discovered by the crawler
      * @return List of security findings
@@ -232,3 +241,6 @@ private:
     
 private:
     std::unique_ptr<ResponseAnalyzer> response_analyzer_;  // Optional response analyzer
+    std::unique_ptr<TimingAnalyzer> timing_analyzer_;  // Optional timing analyzer
+    std::unique_ptr<BaselineComparator> baseline_comparator_;  // Optional baseline comparator
+};

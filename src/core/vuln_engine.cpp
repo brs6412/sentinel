@@ -48,6 +48,10 @@ VulnEngine::VulnEngine(const HttpClient& client, double confidence_threshold, Se
     baseline_comparator_ = std::make_unique<BaselineComparator>(client);
 }
 
+// Destructor - explicitly defined here so ResponseAnalyzer, TimingAnalyzer, and BaselineComparator
+// are fully defined when the unique_ptr destructors are called
+VulnEngine::~VulnEngine() = default;
+
 // Set max risk for vulnerabilities
 void VulnEngine::setRiskBudget(int max_risk) {
     riskBudget_ = max_risk;
@@ -543,14 +547,30 @@ void VulnEngine::checkResponsePatterns(const CrawlResult& result, std::vector<Fi
         return;
     }
     
+    // Fetch the response body by making an HTTP request
+    HttpRequest req;
+    req.method = result.method;
+    req.url = result.url;
+    req.headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
+    enhance_request_with_session(req);
+    
+    HttpResponse resp;
+    if (!client_.perform(req, resp)) {
+        return; // Can't analyze if request fails
+    }
+    
     // Convert headers to map format
     std::map<std::string, std::string> headers_map;
     for (const auto& [key, value] : result.headers) {
         headers_map[key] = value;
     }
+    // Also add response headers
+    for (const auto& [key, value] : resp.headers) {
+        headers_map[key] = value;
+    }
     
     // Analyze response body
-    AnalysisResult analysis = response_analyzer_->analyze(result.body, headers_map);
+    AnalysisResult analysis = response_analyzer_->analyze(resp.body, headers_map);
     
     if (!analysis.has_indicators()) {
         return;
@@ -1042,16 +1062,32 @@ void VulnEngine::checkInformationDisclosure(const CrawlResult& result, std::vect
         return;
     }
     
+    // Fetch the response body by making an HTTP request
+    HttpRequest req;
+    req.method = result.method;
+    req.url = result.url;
+    req.headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
+    enhance_request_with_session(req);
+    
+    HttpResponse resp;
+    if (!client_.perform(req, resp)) {
+        return; // Can't analyze if request fails
+    }
+    
     // Convert the header vector to a map for easier lookup
     // This makes it simpler to check for specific headers like X-Powered-By
     std::map<std::string, std::string> headers_map;
     for (const auto& [key, value] : result.headers) {
         headers_map[key] = value;
     }
+    // Also add response headers
+    for (const auto& [key, value] : resp.headers) {
+        headers_map[key] = value;
+    }
     
     // Use the response analyzer to scan the response body for patterns
     // This will detect stack traces, internal paths, IPs, and other sensitive info
-    AnalysisResult analysis = response_analyzer_->analyze(result.body, headers_map);
+    AnalysisResult analysis = response_analyzer_->analyze(resp.body, headers_map);
     
     // Check for version information in HTTP headers
     // These headers often leak framework and server versions that attackers can use
@@ -1193,11 +1229,11 @@ void VulnEngine::checkInformationDisclosure(const CrawlResult& result, std::vect
     }
     
     // Create request with error-triggering payload
-    HttpRequest req;
-    req.method = result.method;
-    req.url = result.url;
-    req.headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
-    enhance_request_with_session(req);
+    HttpRequest error_req;
+    error_req.method = result.method;
+    error_req.url = result.url;
+    error_req.headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
+    enhance_request_with_session(error_req);
     
     // Error-triggering payloads
     std::vector<std::string> error_payloads = {
@@ -1213,7 +1249,7 @@ void VulnEngine::checkInformationDisclosure(const CrawlResult& result, std::vect
     };
     
     for (const auto& payload : error_payloads) {
-        HttpRequest test_req = req;
+        HttpRequest test_req = error_req;
         
         if (result.method == "GET" || result.method == "HEAD") {
             size_t param_pos = test_req.url.find('?');
@@ -1419,17 +1455,10 @@ void VulnEngine::checkOpenRedirect(const CrawlResult& result, std::vector<Findin
                 // POST/PUT - inject into body
                 std::ostringstream body_builder;
                 
-                // Parse existing body
+                // Build body from existing params
                 std::map<std::string, std::string> body_params;
-                std::istringstream body_iss(result.body);
-                std::string pair;
-                while (std::getline(body_iss, pair, '&')) {
-                    size_t eq = pair.find('=');
-                    if (eq != std::string::npos) {
-                        std::string key = pair.substr(0, eq);
-                        std::string value = pair.substr(eq + 1);
-                        body_params[key] = value;
-                    }
+                for (const auto& [key, value] : result.params) {
+                    body_params[key] = value;
                 }
                 
                 // Replace or add our parameter
@@ -1718,97 +1747,107 @@ void VulnEngine::checkDirectoryListing(const CrawlResult& result, std::vector<Fi
         ".gz", ".zip", ".db", ".sqlite", ".mdb"
     };
     
-    // Check if current result looks like a directory listing
+    // Fetch the response body by making an HTTP request
+    HttpRequest req;
+    req.method = result.method;
+    req.url = result.url;
+    req.headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
+    enhance_request_with_session(req);
+    
+    HttpResponse resp;
     bool is_directory_listing = false;
     std::string server_type;
     std::vector<std::string> detected_files;
     std::vector<std::string> sensitive_files;
     
-    // Test Apache patterns
-    for (const auto& pattern : apache_patterns) {
-        std::smatch match;
-        if (std::regex_search(result.body, match, pattern)) {
-            is_directory_listing = true;
-            server_type = "Apache";
-            break;
-        }
-    }
-    
-    // Test Nginx patterns
-    if (!is_directory_listing) {
-        for (const auto& pattern : nginx_patterns) {
+    if (client_.perform(req, resp)) {
+        // Check if current result looks like a directory listing
+        
+        // Test Apache patterns
+        for (const auto& pattern : apache_patterns) {
             std::smatch match;
-            if (std::regex_search(result.body, match, pattern)) {
+            if (std::regex_search(resp.body, match, pattern)) {
                 is_directory_listing = true;
-                server_type = "Nginx";
+                server_type = "Apache";
                 break;
             }
         }
-    }
-    
-    // Test IIS patterns
-    if (!is_directory_listing) {
-        for (const auto& pattern : iis_patterns) {
-            std::smatch match;
-            if (std::regex_search(result.body, match, pattern)) {
+        
+        // Test Nginx patterns
+        if (!is_directory_listing) {
+            for (const auto& pattern : nginx_patterns) {
+                std::smatch match;
+                if (std::regex_search(resp.body, match, pattern)) {
+                    is_directory_listing = true;
+                    server_type = "Nginx";
+                    break;
+                }
+            }
+        }
+        
+        // Test IIS patterns
+        if (!is_directory_listing) {
+            for (const auto& pattern : iis_patterns) {
+                std::smatch match;
+                if (std::regex_search(resp.body, match, pattern)) {
+                    is_directory_listing = true;
+                    server_type = "IIS";
+                    break;
+                }
+            }
+        }
+        
+        // Additional heuristics: check for file listing patterns
+        if (!is_directory_listing) {
+            // Check for common file listing indicators
+            bool has_file_links = false;
+            bool has_directory_indicators = false;
+            
+            // Look for file links (href to files)
+            std::regex file_link_pattern(R"(<a\s+[^>]*href=["']([^"']+\.\w{2,4})["'])");
+            std::sregex_iterator file_iter(resp.body.begin(), resp.body.end(), file_link_pattern);
+            std::sregex_iterator file_end;
+            
+            size_t file_count = 0;
+            for (; file_iter != file_end; ++file_iter) {
+                file_count++;
+                if (file_count > 5) {  // Multiple file links suggest directory listing
+                    has_file_links = true;
+                    break;
+                }
+            }
+            
+            // Look for directory indicators
+            if (resp.body.find("Parent Directory") != std::string::npos ||
+                resp.body.find("..") != std::string::npos ||
+                resp.body.find("[DIR]") != std::string::npos ||
+                resp.body.find("[PARENTDIR]") != std::string::npos) {
+                has_directory_indicators = true;
+            }
+            
+            // Check for table-based listings (common in directory listings)
+            bool has_table_listing = false;
+            if (resp.body.find("<table") != std::string::npos) {
+                // Check if table contains file-related content
+                std::regex table_file_pattern(R"(<td[^>]*>.*?\.\w{2,4}.*?</td>)");
+                if (std::regex_search(resp.body, table_file_pattern)) {
+                    has_table_listing = true;
+                }
+            }
+        
+            // Heuristic: if we have file links AND directory indicators, likely a directory listing
+            if ((has_file_links && has_directory_indicators) || 
+                (has_file_links && has_table_listing && file_count > 3)) {
                 is_directory_listing = true;
-                server_type = "IIS";
-                break;
-            }
-        }
-    }
-    
-    // Additional heuristics: check for file listing patterns
-    if (!is_directory_listing) {
-        // Check for common file listing indicators
-        bool has_file_links = false;
-        bool has_directory_indicators = false;
-        
-        // Look for file links (href to files)
-        std::regex file_link_pattern(R"(<a\s+[^>]*href=["']([^"']+\.\w{2,4})["'])");
-        std::sregex_iterator file_iter(result.body.begin(), result.body.end(), file_link_pattern);
-        std::sregex_iterator file_end;
-        
-        size_t file_count = 0;
-        for (; file_iter != file_end; ++file_iter) {
-            file_count++;
-            if (file_count > 5) {  // Multiple file links suggest directory listing
-                has_file_links = true;
-                break;
+                server_type = "Unknown";
             }
         }
         
-        // Look for directory indicators
-        if (result.body.find("Parent Directory") != std::string::npos ||
-            result.body.find("..") != std::string::npos ||
-            result.body.find("[DIR]") != std::string::npos ||
-            result.body.find("[PARENTDIR]") != std::string::npos) {
-            has_directory_indicators = true;
-        }
-        
-        // Check for table-based listings (common in directory listings)
-        bool has_table_listing = false;
-        if (result.body.find("<table") != std::string::npos) {
-            // Check if table contains file-related content
-            std::regex table_file_pattern(R"(<td[^>]*>.*?\.\w{2,4}.*?</td>)");
-            if (std::regex_search(result.body, table_file_pattern)) {
-                has_table_listing = true;
-            }
-        }
-        
-        // Heuristic: if we have file links AND directory indicators, likely a directory listing
-        if ((has_file_links && has_directory_indicators) || 
-            (has_file_links && has_table_listing && file_count > 3)) {
-            is_directory_listing = true;
-            server_type = "Unknown";
-        }
-    }
-    
-    // Extract files from directory listing
-    if (is_directory_listing) {
+        // Extract files from directory listing
+        if (is_directory_listing) {
         // Extract file names from links
         std::regex file_pattern(R"(<a\s+[^>]*href=["']([^"']+)["'][^>]*>([^<]+)</a>)");
-        std::sregex_iterator iter(result.body.begin(), result.body.end(), file_pattern);
+        std::sregex_iterator iter(resp.body.begin(), resp.body.end(), file_pattern);
         std::sregex_iterator end;
         
         for (; iter != end; ++iter) {
@@ -1855,7 +1894,7 @@ void VulnEngine::checkDirectoryListing(const CrawlResult& result, std::vector<Fi
         
         // Also try to extract from table rows
         std::regex table_row_pattern(R"(<tr[^>]*>.*?<td[^>]*>.*?<a[^>]*href=["']([^"']+)["'][^>]*>([^<]+)</a>.*?</tr>)");
-        std::sregex_iterator table_iter(result.body.begin(), result.body.end(), table_row_pattern);
+        std::sregex_iterator table_iter(resp.body.begin(), resp.body.end(), table_row_pattern);
         std::sregex_iterator table_end;
         
         for (; table_iter != table_end; ++table_iter) {
@@ -1888,86 +1927,87 @@ void VulnEngine::checkDirectoryListing(const CrawlResult& result, std::vector<Fi
                 }
             }
         }
-    }
-    
-    // Differentiate from custom directory pages
-    // Custom pages usually have more styling, navigation, search, etc.
-    bool is_custom_page = false;
-    if (is_directory_listing) {
-        // Check for custom page indicators
-        if (result.body.find("search") != std::string::npos &&
-            result.body.find("filter") != std::string::npos) {
-            // Might be a custom file browser
-            is_custom_page = true;
-        }
+        } // End of if (is_directory_listing) for file extraction
         
-        // Check for extensive styling (custom pages usually have more CSS)
-        size_t style_count = 0;
-        size_t pos = 0;
-        while ((pos = result.body.find("<style", pos)) != std::string::npos) {
-            style_count++;
-            pos += 6;
-        }
-        
-        // Check for JavaScript (custom pages often have JS)
-        bool has_javascript = (result.body.find("<script") != std::string::npos);
-        
-        // If it has multiple style blocks and JavaScript, likely custom
-        if (style_count > 2 && has_javascript && detected_files.size() < 10) {
-            is_custom_page = true;
-        }
-        
-        // Check for navigation menus (custom pages often have nav)
-        if (result.body.find("<nav") != std::string::npos ||
-            result.body.find("navigation") != std::string::npos) {
-            is_custom_page = true;
-        }
-    }
-    
-    // Create finding if directory listing detected
-    if (is_directory_listing && !is_custom_page) {
-        Finding f;
-        f.id = "finding_" + std::to_string(findings.size() + 1);
-        f.url = result.url;
-        f.method = result.method;
-        f.category = "directory_listing";
-        f.headers = std::map<std::string, std::string>(
-            result.headers.begin(),
-            result.headers.end()
-        );
-        
-        nlohmann::json evidence;
-        evidence["description"] = "Directory listing enabled";
-        evidence["server_type"] = server_type;
-        evidence["files_detected"] = detected_files.size();
-        evidence["files"] = nlohmann::json::array();
-        for (const auto& file : detected_files) {
-            evidence["files"].push_back(file);
-        }
-        
-        if (!sensitive_files.empty()) {
-            evidence["sensitive_files"] = nlohmann::json::array();
-            for (const auto& file : sensitive_files) {
-                evidence["sensitive_files"].push_back(file);
+        // Differentiate from custom directory pages
+        // Custom pages usually have more styling, navigation, search, etc.
+        bool is_custom_page = false;
+        if (is_directory_listing) {
+            // Check for custom page indicators
+            if (resp.body.find("search") != std::string::npos &&
+                resp.body.find("filter") != std::string::npos) {
+                // Might be a custom file browser
+                is_custom_page = true;
             }
-            evidence["sensitive_files_count"] = sensitive_files.size();
+            
+            // Check for extensive styling (custom pages usually have more CSS)
+            size_t style_count = 0;
+            size_t pos = 0;
+            while ((pos = resp.body.find("<style", pos)) != std::string::npos) {
+                style_count++;
+                pos += 6;
+            }
+            
+            // Check for JavaScript (custom pages often have JS)
+            bool has_javascript = (resp.body.find("<script") != std::string::npos);
+            
+            // If it has multiple style blocks and JavaScript, likely custom
+            if (style_count > 2 && has_javascript && detected_files.size() < 10) {
+                is_custom_page = true;
+            }
+            
+            // Check for navigation menus (custom pages often have nav)
+            if (resp.body.find("<nav") != std::string::npos ||
+                resp.body.find("navigation") != std::string::npos) {
+                is_custom_page = true;
+            }
         }
         
-        f.evidence = evidence;
-        
-        // Elevate severity if sensitive files found
-        if (!sensitive_files.empty()) {
-            f.severity = "high";
-            f.confidence = 0.95;
-        } else {
-            f.severity = "medium";
-            f.confidence = 0.85;
-        }
-        
-        f.remediation_id = "directory_listing";
-        
-        findings.push_back(std::move(f));
-    }
+            // Create finding if directory listing detected
+            if (is_directory_listing && !is_custom_page) {
+                Finding f;
+                f.id = "finding_" + std::to_string(findings.size() + 1);
+                f.url = result.url;
+                f.method = result.method;
+                f.category = "directory_listing";
+                f.headers = std::map<std::string, std::string>(
+                    result.headers.begin(),
+                    result.headers.end()
+                );
+                
+                nlohmann::json evidence;
+                evidence["description"] = "Directory listing enabled";
+                evidence["server_type"] = server_type;
+                evidence["files_detected"] = detected_files.size();
+                evidence["files"] = nlohmann::json::array();
+                for (const auto& file : detected_files) {
+                    evidence["files"].push_back(file);
+                }
+                
+                if (!sensitive_files.empty()) {
+                    evidence["sensitive_files"] = nlohmann::json::array();
+                    for (const auto& file : sensitive_files) {
+                        evidence["sensitive_files"].push_back(file);
+                    }
+                    evidence["sensitive_files_count"] = sensitive_files.size();
+                }
+                
+                f.evidence = evidence;
+                
+                // Elevate severity if sensitive files found
+                if (!sensitive_files.empty()) {
+                    f.severity = "high";
+                    f.confidence = 0.95;
+                } else {
+                    f.severity = "medium";
+                    f.confidence = 0.85;
+                }
+                
+                f.remediation_id = "directory_listing";
+                
+                findings.push_back(std::move(f));
+            }
+        } // End of if (client_.perform(req, resp))
     
     // Test common directory paths if current URL looks like it could be a directory
     // or if we discovered this during crawling
@@ -2130,8 +2170,8 @@ void VulnEngine::checkDirectoryListing(const CrawlResult& result, std::vector<Fi
                 break;
             }
         }
-    }
-}
+    } // End of if (current_dir.back() == '/' || current_dir.find('.') == std::string::npos)
+} // End of void VulnEngine::checkDirectoryListing
 
 void VulnEngine::checkHTTPMethodVulnerabilities(const CrawlResult& result, std::vector<Finding>& findings) {
     // These HTTP methods can be dangerous if enabled without proper authentication
