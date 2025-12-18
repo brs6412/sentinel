@@ -22,7 +22,8 @@ enum class PatternType {
     FILE_CONTENT,
     STACK_TRACE,
     DEBUG_INFO,
-    FRAMEWORK_ERROR
+    FRAMEWORK_ERROR,
+    SENSITIVE_DATA
 };
 
 struct PatternMatch {
@@ -48,6 +49,7 @@ struct AnalysisResult {
     bool has_stack_trace;
     bool has_debug_info;
     bool has_framework_error;
+    bool has_sensitive_data;
     
     DatabaseType detected_db_type;
     std::string detected_framework;
@@ -62,6 +64,7 @@ struct AnalysisResult {
           has_stack_trace(false),
           has_debug_info(false),
           has_framework_error(false),
+          has_sensitive_data(false),
           detected_db_type(DatabaseType::UNKNOWN)
     {}
     
@@ -71,7 +74,7 @@ struct AnalysisResult {
      */
     bool has_indicators() const {
         return has_sql_error || has_command_output || has_file_content ||
-               has_stack_trace || has_debug_info || has_framework_error;
+               has_stack_trace || has_debug_info || has_framework_error || has_sensitive_data;
     }
 };
 

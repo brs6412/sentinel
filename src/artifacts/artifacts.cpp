@@ -1,4 +1,10 @@
-// Implementation of reproduction artifact generators
+/**
+ * @file artifacts.cpp
+ * @brief Implementation of reproduction artifact generators
+ * 
+ * This file implements the ArtifactGenerator class which converts security
+ * findings into executable artifacts like shell scripts and Catch2 tests.
+ */
 
 #include "artifacts.h"
 #include "logging/chain.h"
@@ -9,13 +15,14 @@
 #include <iomanip>
 #include <chrono>
 #include <algorithm>
+#include <cctype>
 
 namespace artifacts {
 
 using json = nlohmann::json;
 namespace fs = std::filesystem;
 
-// Shell escape helper
+// Implementation of shell_escape - see header for documentation
 std::string ArtifactGenerator::shell_escape(const std::string& s) {
     std::ostringstream oss;
     oss << "'";
@@ -30,7 +37,7 @@ std::string ArtifactGenerator::shell_escape(const std::string& s) {
     return oss.str();
 }
 
-// C++ string literal escape
+// Implementation of cpp_escape - see header for documentation
 std::string ArtifactGenerator::cpp_escape(const std::string& s) {
     std::ostringstream oss;
     for (char c : s) {
@@ -46,7 +53,7 @@ std::string ArtifactGenerator::cpp_escape(const std::string& s) {
     return oss.str();
 }
 
-// Generate curl command
+// Implementation of generate_curl_command - see header for documentation
 std::string ArtifactGenerator::generate_curl_command(const Finding& finding) {
     if (finding.evidence.find("repro_curl") != finding.evidence.end()) {
         return finding.evidence["repro_curl"];
@@ -75,7 +82,7 @@ std::string ArtifactGenerator::generate_curl_command(const Finding& finding) {
     return cmd.str();
 }
 
-// Generate repro script
+// Implementation of generate_repro_script - see header for documentation
 bool ArtifactGenerator::generate_repro_script(
     const std::vector<Finding>& findings,
     const std::string& output_path
@@ -257,7 +264,7 @@ bool ArtifactGenerator::generate_repro_script(
     return true;
 }
 
-// Generate test case with FUNCTIONAL implementation using actual HttpClient API
+// Implementation of generate_test_case - see header for documentation
 std::string ArtifactGenerator::generate_test_case(const Finding& finding) {
     std::ostringstream test;
     
@@ -283,177 +290,149 @@ std::string ArtifactGenerator::generate_test_case(const Finding& finding) {
     test << "    // Setup request\n";
     test << "    HttpClient client;\n";
     test << "    HttpRequest req;\n";
-    test << "    req.url = \"" << cpp_escape(finding.url) << "\";\n";
+    // Extract base URL and path from finding URL
+    std::string base_url = "http://127.0.0.1:8080";
+    std::string path_and_query = finding.url;
     
-    // Set method
-    if (!finding.method.empty()) {
-        test << "    req.method = \"" << cpp_escape(finding.method) << "\";\n";
-    } else {
-        test << "    req.method = \"GET\";\n";
-    }
-    
-    // Set headers
-    if (!finding.headers.empty()) {
-        test << "\n";
-        test << "    // Request headers\n";
-        for (const auto& [key, value] : finding.headers) {
-            test << "    req.headers[\"" << cpp_escape(key) << "\"] = \"" 
-                 << cpp_escape(value) << "\";\n";
+    size_t scheme_end = finding.url.find("://");
+    if (scheme_end != std::string::npos) {
+        size_t path_start = finding.url.find('/', scheme_end + 3);
+        if (path_start != std::string::npos) {
+            base_url = finding.url.substr(0, path_start);
+            path_and_query = finding.url.substr(path_start);
+        } else {
+            base_url = finding.url;
+            path_and_query = "/";
         }
     }
     
-    // Set body
+    test << "    // Target URL (can be overridden with TARGET_URL env var)\n";
+    test << "    std::string base_url = get_target_url(\"" << cpp_escape(base_url) << "\");\n";
+    test << "    std::string test_url = base_url + \"" << cpp_escape(path_and_query) << "\";\n";
+    test << "    \n";
+    test << "    HttpClient client = create_test_client();\n";
+    test << "    HttpRequest req;\n";
+    test << "    req.method = \"" << cpp_escape(finding.method) << "\";\n";
+    test << "    req.url = test_url;\n";
+    
+    // Add headers from finding
+    if (!finding.headers.empty()) {
+        test << "    \n";
+        test << "    // Request headers\n";
+        for (const auto& [key, value] : finding.headers) {
+            test << "    req.headers[\"" << cpp_escape(key) << "\"] = \"" << cpp_escape(value) << "\";\n";
+        }
+    }
+    
+    // Add body if present
     if (!finding.body.empty()) {
-        test << "\n";
+        test << "    \n";
         test << "    // Request body\n";
         test << "    req.body = \"" << cpp_escape(finding.body) << "\";\n";
     }
     
-    test << "\n";
-    test << "    // Execute request\n";
+    test << "    \n";
     test << "    HttpResponse resp;\n";
-    test << "    bool success = client.perform(req, resp);\n";
-    test << "    REQUIRE(success);\n";
-    test << "    INFO(\"Response status: \" << resp.status);\n";
-    test << "\n";
+    test << "    REQUIRE(client.perform(req, resp));\n";
+    test << "    REQUIRE(resp.status > 0);\n";
+    test << "    \n";
     
-    // Generate category-specific assertions
+    // Generate assertions based on category
     if (finding.category == "missing_security_header") {
-        std::string header = finding.evidence.value("header", "X-Frame-Options");
-        test << "    // Verify security header '" << cpp_escape(header) << "' is present\n";
-        test << "    bool has_header = false;\n";
-        test << "    for (const auto& [key, value] : resp.headers) {\n";
-        test << "        if (strcasecmp(key.c_str(), \"" << cpp_escape(header) << "\") == 0) {\n";
-        test << "            has_header = true;\n";
-        test << "            INFO(\"Found header: \" << key << \": \" << value);\n";
-        test << "            break;\n";
-        test << "        }\n";
-        test << "    }\n";
-        test << "    REQUIRE(has_header);\n";
+        std::string header = finding.evidence.value("header_checked", "X-Frame-Options");
+        std::string lower_header = header;
+        std::transform(lower_header.begin(), lower_header.end(), lower_header.begin(), ::tolower);
+        
+        test << "    // Verify security header is present\n";
+        test << "    REQUIRE(verify_security_header(resp, \"" << cpp_escape(lower_header) << "\"));\n";
         
     } else if (finding.category == "unsafe_cookie") {
-        std::string cookie_name = finding.evidence.value("cookie", "session");
-        std::string description = finding.evidence.value("description", "");
+        std::string cookie_name = finding.evidence.value("cookie_name", "session");
+        std::string missing_flag = finding.evidence.value("missing_flag", "Secure");
         
-        test << "    // Verify cookie '" << cpp_escape(cookie_name) << "' has proper security flags\n";
-        test << "    bool cookie_found = false;\n";
-        test << "    bool has_secure = false;\n";
-        test << "    bool has_httponly = false;\n";
-        test << "    std::string cookie_value;\n";
-        test << "\n";
-        test << "    for (const auto& [key, value] : resp.headers) {\n";
-        test << "        if (strcasecmp(key.c_str(), \"set-cookie\") == 0) {\n";
-        test << "            if (value.find(\"" << cpp_escape(cookie_name) << "=\") != std::string::npos) {\n";
-        test << "                cookie_found = true;\n";
-        test << "                cookie_value = value;\n";
-        test << "                INFO(\"Set-Cookie: \" << value);\n";
-        test << "                \n";
-        test << "                // Check for Secure flag (case-insensitive)\n";
-        test << "                std::string lower_value = value;\n";
-        test << "                std::transform(lower_value.begin(), lower_value.end(), lower_value.begin(), ::tolower);\n";
-        test << "                if (lower_value.find(\"; secure\") != std::string::npos ||\n";
-        test << "                    lower_value.find(\";secure\") != std::string::npos) {\n";
-        test << "                    has_secure = true;\n";
-        test << "                }\n";
-        test << "                \n";
-        test << "                // Check for HttpOnly flag (case-insensitive)\n";
-        test << "                if (lower_value.find(\"; httponly\") != std::string::npos ||\n";
-        test << "                    lower_value.find(\";httponly\") != std::string::npos) {\n";
-        test << "                    has_httponly = true;\n";
-        test << "                }\n";
-        test << "                break;\n";
-        test << "            }\n";
-        test << "        }\n";
-        test << "    }\n";
-        test << "\n";
-        test << "    REQUIRE(cookie_found);\n";
-        
-        // Check what specific issue was found
-        std::string desc_lower = description;
-        std::transform(desc_lower.begin(), desc_lower.end(), desc_lower.begin(), ::tolower);
-        
-        if (desc_lower.find("secure") != std::string::npos) {
-            test << "    REQUIRE(has_secure);  // Issue: " << cpp_escape(description) << "\n";
-        }
-        if (desc_lower.find("httponly") != std::string::npos) {
-            test << "    REQUIRE(has_httponly);  // Issue: " << cpp_escape(description) << "\n";
-        }
-        
-    } else if (finding.category == "reflected_xss") {
-        std::string param = finding.evidence.value("param", "");
-        std::string injected = finding.evidence.value("injected", "");
-        
-        test << "    // Verify XSS payload is properly escaped/sanitized\n";
-        if (!injected.empty()) {
-            test << "    // The injected marker should NOT appear unescaped in response\n";
-            test << "    std::string marker = \"" << cpp_escape(injected) << "\";\n";
-            test << "    bool found_unescaped = resp.body.find(marker) != std::string::npos;\n";
-            test << "    INFO(\"Response body length: \" << resp.body.length());\n";
-            test << "    if (found_unescaped) {\n";
-            test << "        INFO(\"XSS marker found unescaped in response!\");\n";
-            test << "    }\n";
-            test << "    REQUIRE_FALSE(found_unescaped);\n";
-        } else {
-            test << "    // Check that dangerous XSS patterns are not present\n";
-            test << "    REQUIRE(resp.body.find(\"<script\") == std::string::npos);\n";
-            test << "    REQUIRE(resp.body.find(\"<SCRIPT\") == std::string::npos);\n";
-            test << "    REQUIRE(resp.body.find(\"javascript:\") == std::string::npos);\n";
-            test << "    REQUIRE(resp.body.find(\"onerror=\") == std::string::npos);\n";
-            test << "    REQUIRE(resp.body.find(\"onload=\") == std::string::npos);\n";
-        }
+        test << "    // Parse cookies from response\n";
+        test << "    auto cookies = parse_cookies_from_response(resp);\n";
+        test << "    REQUIRE(cookies.count(\"" << cpp_escape(cookie_name) << "\") > 0);\n";
+        test << "    \n";
+        test << "    // Verify cookie has required flag\n";
+        test << "    CookieInfo cookie = cookies[\"" << cpp_escape(cookie_name) << "\"];\n";
+        test << "    REQUIRE(cookie_has_flag(cookie, \"" << cpp_escape(missing_flag) << "\"));\n";
         
     } else if (finding.category == "cors_misconfiguration") {
-        test << "    // Verify CORS headers are properly configured\n";
-        test << "    std::string acao;\n";
-        test << "    std::string acac;\n";
-        test << "\n";
-        test << "    for (const auto& [key, value] : resp.headers) {\n";
-        test << "        if (strcasecmp(key.c_str(), \"access-control-allow-origin\") == 0) {\n";
-        test << "            acao = value;\n";
-        test << "        }\n";
-        test << "        if (strcasecmp(key.c_str(), \"access-control-allow-credentials\") == 0) {\n";
-        test << "            acac = value;\n";
-        test << "        }\n";
-        test << "    }\n";
-        test << "\n";
-        test << "    INFO(\"Access-Control-Allow-Origin: \" << acao);\n";
-        test << "    INFO(\"Access-Control-Allow-Credentials: \" << acac);\n";
-        test << "\n";
-        test << "    // DANGEROUS: wildcard origin (*) with credentials (true)\n";
-        test << "    bool dangerous_cors = (acao == \"*\" && acac == \"true\");\n";
-        test << "    REQUIRE_FALSE(dangerous_cors);\n";
+        test << "    // Perform CORS preflight request\n";
+        test << "    HttpResponse cors_resp = cors_preflight_request(client, test_url, \"https://evil.example.com\", \"POST\");\n";
+        test << "    \n";
+        test << "    // Verify CORS is not misconfigured (wildcard origin with credentials)\n";
+        test << "    REQUIRE_FALSE(verify_cors_misconfiguration(cors_resp));\n";
         
-    } else {
-        // Generic verification for unknown categories
-        test << "    // Generic verification for " << finding.category << "\n";
-        test << "    INFO(\"Response body length: \" << resp.body.length());\n";
-        test << "    INFO(\"Response time: \" << resp.total_time << \"s\");\n";
-        test << "\n";
+    } else if (finding.category == "sql_injection") {
+        std::string payload = finding.evidence.value("payload", "");
+        std::string detection_method = finding.evidence.value("detection_method", "error");
+        std::string param_name = finding.evidence.value("param_name", "id");
         
-        if (!finding.evidence.empty()) {
-            test << "    // Evidence from scan:\n";
-            for (auto it = finding.evidence.begin(); it != finding.evidence.end(); ++it) {
-                std::string key = it.key();
-
-                // Skip repro_curl as it's redundant with the reproduction script
-                if (key == "repro_curl") {
-                    continue;
-                }
-
-                std::string value;
-                if (it.value().is_string()) {
-                    value = it.value().get<std::string>();
-                } else {
-                    value = it.value().dump();
-                }
-                test << "    // " << cpp_escape(key) << ": " << cpp_escape(value) << "\n";
-            }
+        test << "    // SQL injection test with payload\n";
+        test << "    HttpRequest sql_req = req;\n";
+        if (!payload.empty()) {
+            // Check if URL already has query parameters
+            std::string separator = (path_and_query.find('?') != std::string::npos) ? "&" : "?";
+            test << "    sql_req.url = test_url + \"" << separator << cpp_escape(param_name) << "=" << cpp_escape(payload) << "\";\n";
+        }
+        test << "    \n";
+        test << "    HttpResponse sql_resp;\n";
+        test << "    REQUIRE(client.perform(sql_req, sql_resp));\n";
+        test << "    \n";
+        
+        if (detection_method == "error") {
+            test << "    // Verify SQL error is NOT present (vulnerability should be fixed)\n";
+            test << "    REQUIRE_FALSE(contains_sql_error(sql_resp));\n";
+        } else if (detection_method == "time") {
+            test << "    // Verify response time is reasonable (no time-based injection)\n";
+            test << "    double response_time = measure_response_time(client, sql_req);\n";
+            test << "    REQUIRE_FALSE(response_time_exceeds(response_time, 5000.0));\n";
+        } else {
+            test << "    // Verify SQL error is NOT present\n";
+            test << "    REQUIRE_FALSE(contains_sql_error(sql_resp));\n";
         }
         
-        test << "\n";
-        test << "    // Verify we got a valid HTTP response\n";
-        test << "    REQUIRE(resp.status > 0);\n";
-        test << "    REQUIRE(resp.status < 600);\n";
+    } else if (finding.category == "command_injection") {
+        std::string payload = finding.evidence.value("payload", "");
+        std::string param_name = finding.evidence.value("param_name", "host");
+        
+        test << "    // Command injection test\n";
+        test << "    HttpRequest cmd_req = req;\n";
+        if (!payload.empty()) {
+            std::string separator = (path_and_query.find('?') != std::string::npos) ? "&" : "?";
+            test << "    cmd_req.url = test_url + \"" << separator << cpp_escape(param_name) << "=" << cpp_escape(payload) << "\";\n";
+        }
+        test << "    \n";
+        test << "    HttpResponse cmd_resp;\n";
+        test << "    REQUIRE(client.perform(cmd_req, cmd_resp));\n";
+        test << "    \n";
+        test << "    // Verify command output is NOT present (vulnerability should be fixed)\n";
+        test << "    REQUIRE_FALSE(contains_command_output(cmd_resp));\n";
+        
+    } else if (finding.category == "path_traversal") {
+        std::string payload = finding.evidence.value("payload", "");
+        std::string param_name = finding.evidence.value("param_name", "file");
+        
+        test << "    // Path traversal test\n";
+        test << "    HttpRequest path_req = req;\n";
+        if (!payload.empty()) {
+            std::string separator = (path_and_query.find('?') != std::string::npos) ? "&" : "?";
+            test << "    path_req.url = test_url + \"" << separator << cpp_escape(param_name) << "=" << cpp_escape(payload) << "\";\n";
+        }
+        test << "    \n";
+        test << "    HttpResponse path_resp;\n";
+        test << "    REQUIRE(client.perform(path_req, path_resp));\n";
+        test << "    \n";
+        test << "    // Verify file content is NOT exposed (vulnerability should be fixed)\n";
+        test << "    REQUIRE_FALSE(contains_file_content(path_resp));\n";
+        
+    } else {
+        // Generic test for other categories
+        test << "    // Generic verification for " << finding.category << "\n";
+        test << "    // Evidence: " << cpp_escape(finding.evidence.dump()) << "\n";
+        test << "    REQUIRE(resp.status == 200 || resp.status < 500);\n";
     }
     
     test << "}\n\n";
@@ -461,7 +440,7 @@ std::string ArtifactGenerator::generate_test_case(const Finding& finding) {
     return test.str();
 }
 
-// Generate Catch2 tests with functional implementation
+// Implementation of generate_catch2_tests - see header for documentation
 bool ArtifactGenerator::generate_catch2_tests(
     const std::vector<Finding>& findings,
     const std::string& run_id,
@@ -494,36 +473,21 @@ bool ArtifactGenerator::generate_catch2_tests(
     out << " */\n\n";
     
     out << "#define CATCH_CONFIG_MAIN\n";
-    out << "#include <catch2/catch.hpp>\n";
-    out << "#include <core/http_client.h>\n";
-    out << "#include <string>\n";
-    out << "#include <map>\n";
-    out << "#include <vector>\n";
-    out << "#include <algorithm>\n";
-    out << "#include <cstring>  // for strcasecmp\n\n";
+    out << "#include \"catch_amalgamated.hpp\"\n";
+    out << "#include \"core/http_client.h\"\n";
+    out << "#include \"helpers/http_test_helpers.h\"\n";
+    out << "#include <string>\n\n";
     
     out << "/**\n";
     out << " * Test Execution Guide:\n";
     out << " * \n";
-    out << " * Run all security tests:\n";
-    out << " *   ./test_security_findings\n";
+    out << " * To configure the target URL, set the TARGET_URL environment variable:\n";
+    out << " *   export TARGET_URL=http://example.com:8080\n";
     out << " * \n";
-    out << " * Run tests for specific vulnerability category:\n";
-    out << " *   ./test_security_findings [missing_security_header]\n";
-    out << " *   ./test_security_findings [reflected_xss]\n";
-    out << " *   ./test_security_findings [unsafe_cookie]\n";
-    out << " * \n";
-    out << " * Run tests by severity:\n";
-    out << " *   ./test_security_findings [critical]\n";
-    out << " *   ./test_security_findings [high]\n";
-    out << " *   ./test_security_findings [medium]\n";
-    out << " * \n";
-    out << " * Run a specific test:\n";
-    out << " *   ./test_security_findings \"missing_security_header_finding_1\"\n";
-    out << " * \n";
-    out << " * Verbose output:\n";
-    out << " *   ./test_security_findings -s\n";
+    out << " * Default target: http://127.0.0.1:8080\n";
     out << " */\n\n";
+    
+    out << "using namespace test_helpers;\n\n";
     
     // Generate summary comment
     std::map<std::string, int> by_severity;
@@ -575,7 +539,7 @@ bool ArtifactGenerator::generate_catch2_tests(
     return true;
 }
 
-// Hash file
+// Implementation of hash_file - see header for documentation
 std::string ArtifactGenerator::hash_file(const std::string& file_path) {
     std::ifstream file(file_path, std::ios::binary);
     if (!file.is_open()) {
@@ -592,7 +556,7 @@ std::string ArtifactGenerator::hash_file(const std::string& file_path) {
     return logging::Sha256Hex(file_contents);
 }
 
-// Generate manifest
+// Implementation of generate_manifest - see header for documentation
 bool ArtifactGenerator::generate_manifest(
     const std::string& artifact_dir,
     const std::string& output_path

@@ -47,6 +47,156 @@ public:
      * @param max_risk Maximum risk score before blocking
      */
     void setRiskBudget(int max_risk);
+    
+    /**
+     * @brief Set the callback URL for out-of-band (OOB) detection
+     * 
+     * When a callback URL is configured, Sentinel will inject callback URLs with
+     * unique tokens into SSRF and XXE payloads. This allows detection of blind
+     * vulnerabilities where the server makes requests to external URLs.
+     * 
+     * @param url Callback URL (e.g., "https://webhook.site/unique-id" or "http://your-server.com/callback")
+     *            Empty string disables OOB detection
+     */
+    void setCallbackUrl(const std::string& url);
+
+    /**
+     * @brief Check for insecure direct object references (IDOR)
+     * @param result Page to check
+     * @param findings List to add findings to
+     */
+    void checkIDOR(const CrawlResult& result, std::vector<Finding>& findings);
+    
+    /**
+     * @brief Check for SQL injection vulnerabilities using multiple detection methods
+     * 
+     * Tests all parameters (GET, POST, headers, cookies) for SQL injection using:
+     * - Error-based detection via ResponseAnalyzer
+     * - Time-based blind detection via TimingAnalyzer
+     * - Boolean-based blind detection via BaselineComparator
+     * 
+     * Supports MySQL, PostgreSQL, SQL Server, and Oracle databases.
+     * Tests common bypass techniques (encoding, comments).
+     * 
+     * @param result Page to check
+     * @param findings List to add findings to
+     */
+    void checkSQLInjection(const CrawlResult& result, std::vector<Finding>& findings);
+    
+    /**
+     * @brief Check for OS command injection vulnerabilities using multiple detection methods
+     * 
+     * Tests parameters that might be passed to system commands using:
+     * - Command output detection via ResponseAnalyzer
+     * - Time-based blind detection via TimingAnalyzer (sleep payloads)
+     * - Response change detection via BaselineComparator
+     * 
+     * Tests multiple command separators (;, |, &, $(cmd), `cmd`, newline).
+     * Tests both Unix and Windows command payloads.
+     * 
+     * @param result Page to check
+     * @param findings List to add findings to
+     */
+    void checkCommandInjection(const CrawlResult& result, std::vector<Finding>& findings);
+    
+    /**
+     * @brief Check for path traversal (directory traversal) vulnerabilities
+     * 
+     * Tests file path parameters with traversal sequences using:
+     * - File content detection via ResponseAnalyzer (passwd, win.ini, etc.)
+     * - Response change detection via BaselineComparator
+     * 
+     * Tests basic traversal (../), encoded variants (%2e%2e%2f, ..%252f),
+     * null byte injection for extension bypass, and both Unix and Windows paths.
+     * 
+     * @param result Page to check
+     * @param findings List to add findings to
+     */
+    void checkPathTraversal(const CrawlResult& result, std::vector<Finding>& findings);
+    
+    /**
+     * @brief Check for Server-Side Request Forgery (SSRF) vulnerabilities
+     * 
+     * Tests URL parameters that might trigger server-side requests using:
+     * - Internal IP address testing (127.0.0.1, 169.254.169.254, 10.x, 192.168.x)
+     * - Internal hostname testing (localhost, metadata, internal)
+     * - Protocol handler testing (file://, gopher://, dict://)
+     * - Cloud metadata endpoint detection (AWS, GCP, Azure)
+     * - Internal content detection via ResponseAnalyzer
+     * 
+     * @param result Page to check
+     * @param findings List to add findings to
+     */
+    void checkSSRF(const CrawlResult& result, std::vector<Finding>& findings);
+    
+    /**
+     * @brief Check for XML External Entity (XXE) vulnerabilities
+     * 
+     * Tests endpoints that accept XML input using:
+     * - External entity declarations for file disclosure
+     * - Parameter entities for blind XXE
+     * - File content detection via entity expansion
+     * - Out-of-band detection (when callback URLs available)
+     * 
+     * Tests common file targets (/etc/passwd, /etc/hostname, win.ini).
+     * Detects XML content type and XML-like parameter names.
+     * 
+     * @param result Page to check
+     * @param findings List to add findings to
+     */
+    void checkXXE(const CrawlResult& result, std::vector<Finding>& findings);
+    
+    /**
+     * @brief Check for Server-Side Template Injection (SSTI) vulnerabilities
+     * 
+     * Tests with template syntax for common engines (Jinja2, Twig, Freemarker, Velocity, etc.)
+     * using:
+     * - Template evaluation detection (e.g., {{7*7}} = 49)
+     * - Template engine identification
+     * - ResponseAnalyzer for evaluated output detection
+     * 
+     * Tests in user input fields, URL parameters, and headers.
+     * 
+     * @param result Page to check
+     * @param findings List to add findings to
+     */
+    void checkSSTI(const CrawlResult& result, std::vector<Finding>& findings);
+    
+    /**
+     * @brief Check for sensitive data exposure in responses
+     * 
+     * Detects PII patterns (SSN, credit cards, phone numbers, emails),
+     * credential patterns (passwords, API keys, tokens),
+     * sensitive field names in JSON/XML responses,
+     * and excessive data in responses (over-fetching).
+     * 
+     * Uses context-aware detection to reduce false positives.
+     * 
+     * @param result Page to check
+     * @param findings List to add findings to
+     */
+    void checkSensitiveDataExposure(const CrawlResult& result, std::vector<Finding>& findings);
+    
+    /**
+     * @brief Generate a unique token for out-of-band detection
+     * 
+     * Creates a unique token using timestamp and random number to identify
+     * callback requests from specific vulnerability tests.
+     * 
+     * @return Unique token string (format: "sentinel_{timestamp}_{random}")
+     */
+    std::string generateCallbackToken() const;
+    
+    /**
+     * @brief Build a callback URL with a unique token appended
+     * 
+     * Constructs a callback URL by appending the token as a query parameter.
+     * Handles URLs with or without existing query parameters.
+     * 
+     * @param token Unique token to append to callback URL
+     * @return Complete callback URL with token parameter, or empty string if callback_url_ is not set
+     */
+    std::string buildCallbackUrl(const std::string& token) const;
 
 private:
     const HttpClient& client_;
@@ -88,13 +238,6 @@ private:
      * @param findings List to add findings to
      */
     void checkCSRF(const CrawlResult& result, std::vector<Finding>& findings);
-
-    /**
-     * @brief Check for insecure direct object references (IDOR)
-     * @param result Page to check
-     * @param findings List to add findings to
-     */
-    void checkIDOR(const CrawlResult& result, std::vector<Finding>& findings);
     
     /**
      * @brief Check response for vulnerability indicators (SQL errors, stack traces, etc.)
@@ -239,8 +382,21 @@ private:
      */
     void enhance_request_with_session(HttpRequest& req, const std::string& user_id = "") const;
     
+    /**
+     * @brief Verify if a callback was received for a given token
+     * 
+     * Checks if a callback request was received at the callback URL with the specified token.
+     * Supports webhook.site API for automatic verification, or returns false for manual verification.
+     * 
+     * @param token Token to check for in callback requests
+     * @return true if callback was verified, false otherwise
+     */
+    bool verifyCallbackReceived(const std::string& token) const;
+    
 private:
     std::unique_ptr<ResponseAnalyzer> response_analyzer_;  // Optional response analyzer
     std::unique_ptr<TimingAnalyzer> timing_analyzer_;  // Optional timing analyzer
     std::unique_ptr<BaselineComparator> baseline_comparator_;  // Optional baseline comparator
+    std::string callback_url_;  // Optional callback URL for OOB detection
+    std::map<std::string, std::chrono::system_clock::time_point> active_tokens_;  // Track active tokens with timestamps
 };
