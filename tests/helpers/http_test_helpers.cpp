@@ -9,6 +9,7 @@
 #include <sstream>
 #include <regex>
 #include <chrono>
+#include <cstring>
 
 namespace test_helpers {
 
