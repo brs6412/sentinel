@@ -32,3 +32,6 @@ Thumbs.db
 # Backup files
 *.bak
 *~
+
+# Vibe folder (not to be committed)
+/vibe/
