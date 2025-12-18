@@ -4,3 +4,12 @@ request_timeout_ms: 4000     # per request timeout
 max_depth: 2                 # crawl breadth/recursion guard
 respect_robots: true         # be a good citizen when hitting real targets
 rate_limit_rps: 2            # simple client-side throttle
+
+# Out-of-band (OOB) detection configuration
+# Optional callback URL for detecting blind SSRF and XXE vulnerabilities
+# When configured, Sentinel will inject callback URLs with unique tokens into payloads
+# and verify if the target server makes requests to the callback URL
+# Examples:
+#   callback_url: "https://webhook.site/unique-uuid-here"  # Use webhook.site for automatic verification
+#   callback_url: "http://your-server.com/callback"        # Use custom callback server (manual verification)
+callback_url: ""  # Leave empty to disable OOB detection

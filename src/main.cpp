@@ -31,12 +31,62 @@ std::string generate_run_id() {
  * @param results Vector of crawl results to be analyzed
  * @return Status code (0 on success)
  */
+/**
+ * @brief Read callback URL from scanner.yaml configuration file
+ * @param config_path Path to scanner.yaml file
+ * @return Callback URL string, or empty string if not configured or file not found
+ */
+std::string read_callback_url(const std::string& config_path) {
+    std::ifstream in(config_path);
+    if (!in.is_open()) {
+        return "";
+    }
+    
+    std::string line;
+    bool in_oob_section = false;
+    while (std::getline(in, line)) {
+        // Remove comments
+        size_t comment_pos = line.find('#');
+        if (comment_pos != std::string::npos) {
+            line = line.substr(0, comment_pos);
+        }
+        
+        // Trim whitespace
+        line.erase(0, line.find_first_not_of(" \t"));
+        line.erase(line.find_last_not_of(" \t") + 1);
+        
+        if (line.empty()) continue;
+        
+        // Check for callback_url field
+        if (line.find("callback_url:") == 0) {
+            std::string value = line.substr(12);  // Skip "callback_url:"
+            // Trim whitespace and remove quotes
+            value.erase(0, value.find_first_not_of(" \t"));
+            value.erase(value.find_last_not_of(" \t") + 1);
+            if (value.size() >= 2 && value[0] == '"' && value.back() == '"') {
+                value = value.substr(1, value.size() - 2);
+            }
+            return value;
+        }
+    }
+    
+    return "";
+}
+
 int generate_findings(HttpClient& client, std::string run_id, std::vector<CrawlResult>& results) {
     // Create output directories
     std::filesystem::create_directories("./out/reports");
     logging::ChainLogger logger("./out/reports/sentinel_chain.jsonl", run_id);
 
     VulnEngine vulnEngine(client);
+    
+    // Read callback URL from scanner.yaml if configured
+    std::string callback_url = read_callback_url("config/scanner.yaml");
+    if (!callback_url.empty()) {
+        vulnEngine.setCallbackUrl(callback_url);
+        std::cout << "OOB detection enabled with callback URL: " << callback_url << "\n";
+    }
+    
     std::vector<Finding> findings = vulnEngine.analyze(results);
 
     std::cout << "Generated " << findings.size() << " findings\n";

@@ -4,13 +4,13 @@ Sentinel is a comprehensive Dynamic Application Security Testing (DAST) system d
 
 ## Key Features
 
-- **Comprehensive Vulnerability Detection**: Identifies security headers misconfigurations, unsafe cookies, CORS issues, XSS, CSRF, IDOR, information disclosure, open redirects, directory listings, and dangerous HTTP methods
+- **Comprehensive Vulnerability Detection**: Identifies security headers misconfigurations, unsafe cookies, CORS issues, XSS, CSRF, IDOR, SQL injection, command injection, path traversal, SSRF, XXE, SSTI, sensitive data exposure, information disclosure, open redirects, directory listings, and dangerous HTTP methods
 - **Authenticated Scanning**: Supports form-based, API-based (bearer tokens/API keys), and OAuth authentication for testing protected endpoints
 - **Advanced Analysis**: Includes response pattern analysis, timing-based blind injection detection, and baseline comparison for behavioral anomaly detection
 - **Tamper-Evident Audit Logging**: Hash-chained log files ensure scan integrity and provide audit trails for compliance
 - **Risk Budget Management**: Configurable risk scoring and thresholds for CI/CD gating
 - **LLM Integration**: Optional integration with Ollama for intelligent test variation generation and proof-of-exploit explanations
-- **Reproducible Findings**: Generates test scripts and remediation instructions for each discovered vulnerability
+- **Reproducible Findings**: Generates fully functional Catch2 test cases and shell scripts for each discovered vulnerability, ready for CI/CD integration
 
 ## Architecture
 
@@ -366,19 +366,66 @@ Sentinel's vulnerability engine performs comprehensive security analysis across 
 - Validates CORS header combinations
 
 ### Injection Vulnerabilities
-- **Reflected XSS**: Tests for cross-site scripting vulnerabilities
-- **Blind SQL Injection**: Uses timing analysis to detect time-based SQL injection
-- **Command Injection**: Detects command execution vulnerabilities via timing anomalies
+- **Reflected XSS**: Tests for cross-site scripting vulnerabilities with payload reflection detection
+- **SQL Injection**: Comprehensive detection using multiple methods:
+  - Error-based detection (MySQL, PostgreSQL, SQL Server, Oracle)
+  - Time-based blind injection (SLEEP payloads)
+  - Boolean-based blind injection (response comparison)
+  - Database type identification
+  - Bypass technique testing (encoding, comments)
+- **Command Injection**: Detects OS command execution vulnerabilities:
+  - Command output detection in responses
+  - Time-based blind detection (sleep commands)
+  - Multiple command separator testing (;, |, &, $(cmd), backticks)
+  - Unix and Windows payload support
+  - OS type identification
+- **Path Traversal**: Detects directory traversal vulnerabilities:
+  - File content detection (/etc/passwd, win.ini, etc.)
+  - Encoded traversal variants (URL encoded, double encoded)
+  - Null byte injection for extension bypass
+  - Unicode and alternative traversal sequences
+  - OS type identification
+- **Server-Side Request Forgery (SSRF)**: Detects SSRF vulnerabilities:
+  - Internal IP address testing (127.0.0.1, 169.254.169.254, private ranges)
+  - Internal hostname testing (localhost, metadata endpoints)
+  - Cloud metadata endpoint detection (AWS, GCP, Azure)
+  - Protocol handler testing (file://, gopher://, dict://)
+  - Internal content detection
+  - **Out-of-band (OOB) detection**: When callback URL is configured, injects callback URLs with unique tokens to detect blind SSRF vulnerabilities
+- **XML External Entity (XXE)**: Detects XXE vulnerabilities:
+  - Classic XXE file disclosure
+  - **Blind XXE via out-of-band callbacks**: When callback URL is configured, uses callback URLs instead of placeholder "attacker.com" in blind XXE payloads
+  - Parameter entity exploitation
+  - SSRF via XXE
+  - Multiple encoding support
+- **Server-Side Template Injection (SSTI)**: Detects template injection vulnerabilities:
+  - Support for major template engines (Jinja2, Twig, Freemarker, Velocity, Smarty, Mako, ERB, JSP, ASP.NET, Handlebars)
+  - Template evaluation detection (mathematical operations)
+  - Template engine identification
+  - Multiple injection point testing (URL params, POST body, headers)
 
 ### Authentication & Authorization
 - **CSRF**: Identifies missing CSRF protection on state-changing operations
-- **IDOR**: Tests for insecure direct object references
+- **Enhanced IDOR**: Advanced insecure direct object reference detection:
+  - Multi-session testing (User A's resources with User B's session)
+  - Resource ID identification in URLs, parameters, and request bodies
+  - Numeric ID enumeration testing
+  - UUID/GUID guessing where applicable
+  - Cross-tenant access detection
+  - Baseline comparison to verify data differences
+  - Proper authorization verification (no false positives on 403/404)
 
 ### Information Disclosure
 - Detects stack traces (Java, .NET, Python, PHP, Node.js, Ruby)
 - Identifies internal file paths and private IP addresses
 - Finds exposed version information in headers and responses
 - Detects debug mode indicators
+- **Sensitive Data Exposure**: Detects sensitive information in responses:
+  - PII patterns (SSN, credit card numbers, phone numbers)
+  - Credential patterns (passwords, API keys, JWT tokens, OAuth tokens)
+  - Sensitive field names in JSON/XML responses
+  - Context-aware detection to reduce false positives
+  - Excessive data exposure detection (over-fetching)
 
 ### Open Redirects
 - Tests common redirect parameters with external domain payloads
@@ -426,20 +473,20 @@ users:
     username: "admin"
     password: "admin123"
     login_url: "http://127.0.0.1:8080/login"
-  
+
   # Bearer token authentication
   - user_id: "api_user"
     auth_type: "api_bearer"
     token: "your_bearer_token_here"
     api_endpoint: "https://api.example.com/validate"
-  
+
   # API key authentication
   - user_id: "api_key_user"
     auth_type: "api_key"
     token: "your_api_key_here"
     api_endpoint: "https://api.example.com/validate"
     header_X-API-Key: "${token}"  # Custom header with token placeholder
-  
+
   # OAuth authentication
   - user_id: "oauth_user"
     auth_type: "oauth"
@@ -477,10 +524,10 @@ creds.login_url = "http://127.0.0.1:8080/login";
 
 if (session_manager.authenticate("admin", creds)) {
     std::cout << "Authentication successful!" << std::endl;
-    
+
     // Get cookies for requests
     auto cookies = session_manager.get_cookies("admin");
-    
+
     // Get auth headers
     auto headers = session_manager.get_auth_headers("admin");
 }
@@ -553,7 +600,7 @@ client.perform(req, resp);
 if (resp.status == 401 || resp.status == 403) {
     // SessionManager will automatically re-authenticate if handle_session_expiration is called
     session_manager.handle_session_expiration("admin", resp, admin_creds);
-    
+
     // Retry the request
     client.perform(req, resp);
 }
@@ -615,6 +662,64 @@ Example authentication flow:
 
 ## Configuration
 
+### Out-of-Band (OOB) Detection
+
+Sentinel supports out-of-band detection for blind SSRF and XXE vulnerabilities. When a callback URL is configured, Sentinel injects unique callback URLs with tokens into payloads and verifies if the target server makes requests to the callback URL.
+
+**Configuration** (`config/scanner.yaml`):
+
+```yaml
+# Out-of-band (OOB) detection configuration
+# Optional callback URL for detecting blind SSRF and XXE vulnerabilities
+callback_url: "https://webhook.site/unique-uuid-here"  # Use webhook.site for automatic verification
+# OR
+callback_url: "http://your-server.com/callback"        # Use custom callback server (manual verification)
+# OR
+callback_url: ""  # Leave empty to disable OOB detection (default)
+```
+
+**Using webhook.site (Recommended)**:
+
+1. Visit https://webhook.site and copy your unique URL (e.g., `https://webhook.site/abc123-def456-...`)
+2. Add it to `config/scanner.yaml`:
+   ```yaml
+   callback_url: "https://webhook.site/abc123-def456-..."
+   ```
+3. Run your scan - Sentinel will automatically verify callbacks via webhook.site's API
+
+**Using a Custom Callback Server**:
+
+1. Set up a server that logs incoming HTTP requests
+2. Add the callback URL to `config/scanner.yaml`:
+   ```yaml
+   callback_url: "http://your-server.com/callback"
+   ```
+3. Run your scan - Sentinel will note in findings that manual verification is required
+4. Check your server logs for requests containing `token=sentinel_...` parameters
+
+**How It Works**:
+
+1. Sentinel generates unique tokens (format: `sentinel_{timestamp}_{random}`)
+2. Injects callback URLs with tokens into SSRF and XXE payloads
+3. After sending payloads, waits 3 seconds for callbacks
+4. For webhook.site URLs: Automatically queries the API to verify callbacks
+5. For custom URLs: Adds a note in findings for manual verification
+6. Creates findings with `detection_method: "out-of-band"` when callbacks are verified
+
+**Example Finding**:
+
+```json
+{
+  "category": "ssrf",
+  "detection_method": "out-of-band",
+  "callback_url": "https://webhook.site/abc123",
+  "token": "sentinel_1234567890_5678",
+  "confidence": 0.90
+}
+```
+
+**Note**: OOB detection is optional. Sentinel works normally without a callback URL configured, using only in-band detection methods.
+
 ### Risk Budget Policy
 
 Edit `config/policy.yaml` to configure risk thresholds:
@@ -634,7 +739,14 @@ category_scores:
   cors_misconfiguration: 3
   reflected_xss: 5
   csrf: 4
-  idor: 4
+  idor: 8
+  sql_injection: 10
+  command_injection: 10
+  path_traversal: 6
+  ssrf: 9
+  xxe: 9
+  ssti: 10
+  sensitive_data_exposure: 7
 
 warn_threshold: 3
 block_threshold: 5
@@ -707,11 +819,62 @@ Sentinel includes several mechanisms to minimize false positives:
 - **Custom Page Detection**: Differentiates between raw directory listings and styled file browsers
 - **Whitelist Validation**: Recognizes when redirects are properly validated against whitelists
 
+## Generated Test Artifacts
+
+Sentinel generates fully functional Catch2 test cases that can be compiled and executed without modification. These tests are designed for CI/CD integration and automatic vulnerability verification.
+
+### Test File Structure
+
+Generated test files include:
+- Complete Catch2 test harness with all necessary includes
+- Actual HTTP client calls (not placeholders)
+- REQUIRE() assertions for verification
+- Helper functions for common checks (headers, cookies, CORS, injection patterns)
+- Configurable target URL via `TARGET_URL` environment variable
+
+### Using Generated Tests
+
+1. **Compile the test file:**
+   ```bash
+   g++ -std=c++17 generated_tests.cpp -I. -lcurl -o test_vulnerabilities
+   ```
+
+2. **Set target URL (optional):**
+   ```bash
+   export TARGET_URL=http://example.com:8080
+   ```
+
+3. **Run tests:**
+   ```bash
+   ./test_vulnerabilities
+   ```
+
+### Test Helper Library
+
+The `tests/helpers/http_test_helpers` library provides utility functions for:
+- Parsing Set-Cookie headers and verifying cookie flags
+- Checking security header presence and values
+- Performing CORS preflight requests
+- Detecting SQL errors, command output, and file content in responses
+- Measuring response times for blind injection tests
+
+### Test Categories
+
+Generated tests verify:
+- **Security Headers**: Checks for required headers (X-Frame-Options, CSP, etc.)
+- **Cookie Security**: Verifies Secure, HttpOnly, and SameSite flags
+- **CORS Configuration**: Tests for wildcard origin with credentials misconfiguration
+- **SQL Injection**: Verifies no SQL errors in responses (or timing anomalies)
+- **Command Injection**: Verifies no command output in responses
+- **Path Traversal**: Verifies no sensitive file content exposure
+
 ## Next Steps
 
 - Review findings in `artifacts/vuln_findings.jsonl`
+- Compile and run generated Catch2 test files for automated verification
 - Run test commands from `out/tests/*.md` files
 - Check chain log integrity with `sentinel verify`
 - Integrate into CI/CD pipeline using exit codes
 - Configure authentication in `config/auth_config.yaml` for authenticated scanning
 - Customize detection patterns in `config/response_patterns.yaml`
+- Use multi-user session configuration for enhanced IDOR testing

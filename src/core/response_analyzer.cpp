@@ -382,6 +382,104 @@ void ResponseAnalyzer::initialize_default_patterns() {
     fw2.case_sensitive = false;
     fw2.description = "Ruby on Rails error";
     patterns_.push_back(fw2);
+
+    // Sensitive Data Patterns
+    // Credit Card Patterns (Luhn-validatable format)
+    PatternConfig cc1;
+    cc1.name = "credit_card_visa_mastercard";
+    cc1.type = PatternType::SENSITIVE_DATA;
+    cc1.regex_pattern = R"(\b(?:4\d{3}|5[1-5]\d{2})[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b)";
+    cc1.confidence = 0.85;
+    cc1.case_sensitive = false;
+    cc1.description = "Credit card number (Visa/Mastercard format)";
+    patterns_.push_back(cc1);
+
+    PatternConfig cc2;
+    cc2.name = "credit_card_amex";
+    cc2.type = PatternType::SENSITIVE_DATA;
+    cc2.regex_pattern = R"(\b3[47]\d{2}[\s-]?\d{6}[\s-]?\d{5}\b)";
+    cc2.confidence = 0.85;
+    cc2.case_sensitive = false;
+    cc2.description = "Credit card number (American Express format)";
+    patterns_.push_back(cc2);
+
+    // SSN Pattern
+    PatternConfig ssn1;
+    ssn1.name = "ssn_format";
+    ssn1.type = PatternType::SENSITIVE_DATA;
+    ssn1.regex_pattern = R"(\b\d{3}[\s-]?\d{2}[\s-]?\d{4}\b)";
+    ssn1.confidence = 0.80;
+    ssn1.case_sensitive = false;
+    ssn1.description = "Social Security Number format";
+    patterns_.push_back(ssn1);
+
+    // API Key Patterns
+    PatternConfig api1;
+    api1.name = "api_key_aws";
+    api1.type = PatternType::SENSITIVE_DATA;
+    api1.regex_pattern = R"(\bAKIA[0-9A-Z]{16}\b)";
+    api1.confidence = 0.95;
+    api1.case_sensitive = false;
+    api1.description = "AWS Access Key ID";
+    patterns_.push_back(api1);
+
+    PatternConfig api2;
+    api2.name = "api_key_generic";
+    api2.type = PatternType::SENSITIVE_DATA;
+    api2.regex_pattern = R"(\b(?:api[_-]?key|apikey|access[_-]?token|secret[_-]?key)[\s:=]+['"]?([a-zA-Z0-9_\-]{20,})['"]?)";
+    api2.confidence = 0.75;
+    api2.case_sensitive = false;
+    api2.description = "Generic API key pattern";
+    patterns_.push_back(api2);
+
+    // JWT Token Pattern
+    PatternConfig jwt1;
+    jwt1.name = "jwt_token";
+    jwt1.type = PatternType::SENSITIVE_DATA;
+    jwt1.regex_pattern = R"(\beyJ[A-Za-z0-9-_=]+\.eyJ[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*\b)";
+    jwt1.confidence = 0.90;
+    jwt1.case_sensitive = false;
+    jwt1.description = "JWT token";
+    patterns_.push_back(jwt1);
+
+    // OAuth Token Pattern
+    PatternConfig oauth1;
+    oauth1.name = "oauth_token";
+    oauth1.type = PatternType::SENSITIVE_DATA;
+    oauth1.regex_pattern = R"(\b(?:oauth[_-]?token|access_token)[\s:=]+['"]?([a-zA-Z0-9_\-]{32,})['"]?)";
+    oauth1.confidence = 0.80;
+    oauth1.case_sensitive = false;
+    oauth1.description = "OAuth access token";
+    patterns_.push_back(oauth1);
+
+    // Password Field Pattern (in JSON/XML responses)
+    PatternConfig pwd1;
+    pwd1.name = "password_field";
+    pwd1.type = PatternType::SENSITIVE_DATA;
+    pwd1.regex_pattern = R"(['"]password['"]\s*[:=]\s*['"]([^'"]{4,})['"])";
+    pwd1.confidence = 0.90;
+    pwd1.case_sensitive = false;
+    pwd1.description = "Password field with value in response";
+    patterns_.push_back(pwd1);
+
+    PatternConfig pwd2;
+    pwd2.name = "password_field_xml";
+    pwd2.type = PatternType::SENSITIVE_DATA;
+    pwd2.regex_pattern = R"(<password[^>]*>([^<]{4,})</password>)";
+    pwd2.confidence = 0.90;
+    pwd2.case_sensitive = false;
+    pwd2.description = "Password field in XML response";
+    patterns_.push_back(pwd2);
+
+    // Sensitive Field Names
+    PatternConfig field1;
+    field1.name = "sensitive_field_names";
+    field1.type = PatternType::SENSITIVE_DATA;
+    field1.regex_pattern = R"(['"](?:password|passwd|pwd|secret|private[_-]?key|api[_-]?secret|access[_-]?token|refresh[_-]?token|session[_-]?id|auth[_-]?token|bearer[_-]?token|ssn|social[_-]?security|credit[_-]?card|card[_-]?number|cvv|cvc|pin|ssn|tax[_-]?id)['"]\s*[:=]\s*['"][^'"]+['"])";
+    field1.confidence = 0.85;
+    field1.case_sensitive = false;
+    field1.description = "Sensitive field names with values";
+    patterns_.push_back(field1);
 }
 
 bool ResponseAnalyzer::load_patterns(const std::string& config_path) {
@@ -472,6 +570,8 @@ bool ResponseAnalyzer::load_patterns(const std::string& config_path) {
                         current_pattern.type = PatternType::DEBUG_INFO;
                     } else if (type_lower == "framework_error") {
                         current_pattern.type = PatternType::FRAMEWORK_ERROR;
+                    } else if (type_lower == "sensitive_data") {
+                        current_pattern.type = PatternType::SENSITIVE_DATA;
                     }
                 } else if (key == "regex" || key == "pattern") {
                     current_pattern.regex_pattern = value;
@@ -554,6 +654,9 @@ AnalysisResult ResponseAnalyzer::analyze(const std::string& response_body,
                         if (result.detected_framework.empty()) {
                             result.detected_framework = match.framework;
                         }
+                        break;
+                    case PatternType::SENSITIVE_DATA:
+                        result.has_sensitive_data = true;
                         break;
                 }
             }
