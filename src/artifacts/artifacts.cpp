@@ -374,7 +374,7 @@ std::string ArtifactGenerator::generate_test_case(const Finding& finding) {
         test << "    HttpRequest sql_req = req;\n";
         if (!payload.empty()) {
             // Check if URL already has query parameters
-            std::string separator = (test_url.find('?') != std::string::npos) ? "&" : "?";
+            std::string separator = (path_and_query.find('?') != std::string::npos) ? "&" : "?";
             test << "    sql_req.url = test_url + \"" << separator << cpp_escape(param_name) << "=" << cpp_escape(payload) << "\";\n";
         }
         test << "    \n";
@@ -401,7 +401,7 @@ std::string ArtifactGenerator::generate_test_case(const Finding& finding) {
         test << "    // Command injection test\n";
         test << "    HttpRequest cmd_req = req;\n";
         if (!payload.empty()) {
-            std::string separator = (test_url.find('?') != std::string::npos) ? "&" : "?";
+            std::string separator = (path_and_query.find('?') != std::string::npos) ? "&" : "?";
             test << "    cmd_req.url = test_url + \"" << separator << cpp_escape(param_name) << "=" << cpp_escape(payload) << "\";\n";
         }
         test << "    \n";
@@ -418,7 +418,7 @@ std::string ArtifactGenerator::generate_test_case(const Finding& finding) {
         test << "    // Path traversal test\n";
         test << "    HttpRequest path_req = req;\n";
         if (!payload.empty()) {
-            std::string separator = (test_url.find('?') != std::string::npos) ? "&" : "?";
+            std::string separator = (path_and_query.find('?') != std::string::npos) ? "&" : "?";
             test << "    path_req.url = test_url + \"" << separator << cpp_escape(param_name) << "=" << cpp_escape(payload) << "\";\n";
         }
         test << "    \n";

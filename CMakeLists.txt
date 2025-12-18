@@ -189,6 +189,8 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/artifacts/latest_security_tests.cpp)
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
         LABELS "security;regression"
     )
+endif()
+
 # Session manager tests
 add_executable(test_session_manager tests/test_session_manager.cpp third_party/catch2/catch_amalgamated.cpp)
 set_source_files_properties(third_party/catch2/catch_amalgamated.cpp PROPERTIES COMPILE_DEFINITIONS "CATCH_CONFIG_MAIN")

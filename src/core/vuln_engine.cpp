@@ -718,10 +718,15 @@ void VulnEngine::checkIDOR(const CrawlResult& result, std::vector<Finding>& find
     }
     
     // Extract IDs from request body (if POST/PUT)
-    if ((result.method == "POST" || result.method == "PUT") && !result.body.empty()) {
-        // Try to parse JSON body
+    // For POST/PUT, construct body from params if available
+    if ((result.method == "POST" || result.method == "PUT") && !result.params.empty()) {
+        // Try to construct JSON body from params
         try {
-            nlohmann::json body_json = nlohmann::json::parse(result.body);
+            nlohmann::json body_json;
+            for (const auto& [key, value] : result.params) {
+                body_json[key] = value;
+            }
+            std::string body_str = body_json.dump();
             std::function<void(const nlohmann::json&, const std::string&)> extract_ids = 
                 [&](const nlohmann::json& obj, const std::string& prefix) {
                     if (obj.is_object()) {
@@ -811,9 +816,19 @@ void VulnEngine::checkIDOR(const CrawlResult& result, std::vector<Finding>& find
         baseline_req.headers[key] = value;
     }
     
-    // Add POST/PUT body if applicable
+    // Add POST/PUT body if applicable (construct from params)
     if (result.method == "POST" || result.method == "PUT") {
-        baseline_req.body = result.body;
+        if (!result.params.empty()) {
+            // Construct form-encoded body from params
+            std::ostringstream body_stream;
+            bool first = true;
+            for (const auto& [key, value] : result.params) {
+                if (!first) body_stream << "&";
+                body_stream << key << "=" << value;
+                first = false;
+            }
+            baseline_req.body = body_stream.str();
+        }
     }
     
     HttpResponse baseline_resp;
@@ -822,7 +837,7 @@ void VulnEngine::checkIDOR(const CrawlResult& result, std::vector<Finding>& find
     }
     
     // Skip if baseline is an error (403, 404, 500, etc.)
-    if (baseline_resp.status_code >= 400) {
+    if (baseline_resp.status >= 400) {
         return;  // User A can't access their own resource, skip IDOR test
     }
     
@@ -865,30 +880,55 @@ void VulnEngine::checkIDOR(const CrawlResult& result, std::vector<Finding>& find
             // Modify parameter value
             test_req.url = build_url_with_param(result.url, result.params, resource_id.param_name, resource_id.id_value);
         } else if (resource_id.location == "body") {
-            // Modify body (for POST/PUT)
-            test_req.body = result.body;
-            // Try to replace ID in JSON body
-            try {
-                nlohmann::json body_json = nlohmann::json::parse(result.body);
-                // Simple replacement - would need more sophisticated JSON path handling
-                std::string body_str = body_json.dump();
-                std::string search_pattern = "\"" + resource_id.param_name + "\"";
-                size_t pos = body_str.find(search_pattern);
-                if (pos != std::string::npos) {
-                    // Find the value after the key
-                    size_t value_start = body_str.find(':', pos);
-                    if (value_start != std::string::npos) {
-                        size_t value_end = body_str.find_first_of(",}", value_start);
-                        if (value_end != std::string::npos) {
-                            std::string new_body = body_str.substr(0, value_start + 1) + 
-                                "\"" + resource_id.id_value + "\"" + 
-                                body_str.substr(value_end);
-                            test_req.body = new_body;
-                        }
+            // Modify body (for POST/PUT) - construct from params
+            if (!result.params.empty()) {
+                // Try to construct JSON body from params
+                try {
+                    nlohmann::json body_json;
+                    for (const auto& [key, value] : result.params) {
+                        body_json[key] = value;
                     }
-                }
+                    // Simple replacement - would need more sophisticated JSON path handling
+                    std::string body_str = body_json.dump();
+                    std::string search_pattern = "\"" + resource_id.param_name + "\"";
+                    size_t pos = body_str.find(search_pattern);
+                    if (pos != std::string::npos) {
+                        // Find the value after the key
+                        size_t value_start = body_str.find(':', pos);
+                        if (value_start != std::string::npos) {
+                            size_t value_end = body_str.find_first_of(",}", value_start);
+                            if (value_end != std::string::npos) {
+                                std::string new_body = body_str.substr(0, value_start + 1) + 
+                                    "\"" + resource_id.id_value + "\"" + 
+                                    body_str.substr(value_end);
+                                test_req.body = new_body;
+                            } else {
+                                test_req.body = body_str;
+                            }
+                        } else {
+                            test_req.body = body_str;
+                        }
+                    } else {
+                        // Pattern not found, use JSON as-is (might be nested)
+                        test_req.body = body_str;
+                    }
             } catch (...) {
-                // Keep original body if JSON parsing fails
+                // Fallback to form-encoded body if JSON parsing fails
+                std::ostringstream body_stream;
+                bool first = true;
+                for (const auto& [key, value] : result.params) {
+                    if (!first) body_stream << "&";
+                    if (key == resource_id.param_name) {
+                        body_stream << key << "=" << resource_id.id_value;
+                    } else {
+                        body_stream << key << "=" << value;
+                    }
+                    first = false;
+                }
+                test_req.body = body_stream.str();
+            }
+            } else {
+                // No params, can't construct body
             }
         }
         
@@ -903,7 +943,7 @@ void VulnEngine::checkIDOR(const CrawlResult& result, std::vector<Finding>& find
         std::string detection_method = "";
         
         // 1. Check status code - if User B gets 200 OK, that's suspicious
-        if (test_resp.status_code == 200 && baseline_resp.status_code == 200) {
+        if (test_resp.status == 200 && baseline_resp.status == 200) {
             // Both got 200, need to check if content is different
             if (baseline_comparator_) {
                 ComparisonResult comparison = baseline_comparator_->compare(baseline_resp, test_resp);
@@ -915,7 +955,7 @@ void VulnEngine::checkIDOR(const CrawlResult& result, std::vector<Finding>& find
                     indicates_idor = true;
                     idor_confidence = 0.95;
                     detection_method = "content_similarity";
-                } else if (comparison.similarity_score < 0.3 && test_resp.status_code == 200) {
+                } else if (comparison.similarity_score < 0.3 && test_resp.status == 200) {
                     // Different content but still 200 - User B accessed different data (also IDOR)
                     indicates_idor = true;
                     idor_confidence = 0.85;
@@ -927,7 +967,7 @@ void VulnEngine::checkIDOR(const CrawlResult& result, std::vector<Finding>& find
                 idor_confidence = 0.75;
                 detection_method = "status_code";
             }
-        } else if (test_resp.status_code == 200 && baseline_resp.status_code != 200) {
+        } else if (test_resp.status == 200 && baseline_resp.status != 200) {
             // User B got 200 but User A didn't - definitely IDOR
             indicates_idor = true;
             idor_confidence = 0.98;
@@ -935,7 +975,7 @@ void VulnEngine::checkIDOR(const CrawlResult& result, std::vector<Finding>& find
         }
         
         // 2. Check if User B got 403/404 (proper authorization) - no IDOR
-        if (test_resp.status_code == 403 || test_resp.status_code == 404) {
+        if (test_resp.status == 403 || test_resp.status == 404) {
             // Proper authorization check - no IDOR
             continue;
         }
@@ -954,8 +994,8 @@ void VulnEngine::checkIDOR(const CrawlResult& result, std::vector<Finding>& find
             evidence["user_a"] = user_a;
             evidence["user_b"] = user_b;
             evidence["detection_method"] = detection_method;
-            evidence["baseline_status"] = baseline_resp.status_code;
-            evidence["test_status"] = test_resp.status_code;
+            evidence["baseline_status"] = baseline_resp.status;
+            evidence["test_status"] = test_resp.status;
             evidence["baseline_length"] = baseline_resp.body.length();
             evidence["test_length"] = test_resp.body.length();
             
@@ -1032,7 +1072,7 @@ void VulnEngine::checkIDOR(const CrawlResult& result, std::vector<Finding>& find
                 }
                 
                 // Check if enumeration was successful (200 OK)
-                if (enum_resp.status_code == 200) {
+                if (enum_resp.status == 200) {
                     // Compare with baseline to see if it's different data
                     if (baseline_comparator_) {
                         ComparisonResult comparison = baseline_comparator_->compare(baseline_resp, enum_resp);
@@ -3732,13 +3772,49 @@ void VulnEngine::checkSensitiveDataExposure(const CrawlResult& result, std::vect
         return;
     }
     
-    // Analyze the response body for sensitive data patterns
+    // Fetch the response body by making an HTTP request
+    HttpRequest req;
+    req.method = result.method;
+    req.url = result.url;
+    req.headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
+    
+    // Add headers from crawl result
+    for (const auto& [key, value] : result.headers) {
+        req.headers[key] = value;
+    }
+    
+    // Add body if present (for POST/PUT requests)
+    if ((result.method == "POST" || result.method == "PUT") && !result.params.empty()) {
+        // Build form-encoded body from params
+        std::ostringstream body_stream;
+        bool first = true;
+        for (const auto& [key, value] : result.params) {
+            if (!first) body_stream << "&";
+            body_stream << key << "=" << value;
+            first = false;
+        }
+        req.body = body_stream.str();
+    }
+    
+    enhance_request_with_session(req);
+    
+    HttpResponse resp;
+    if (!client_.perform(req, resp)) {
+        return; // Can't analyze if request fails
+    }
+    
+    // Convert the header vector to a map for easier lookup
     std::map<std::string, std::string> resp_headers_map;
     for (const auto& [key, value] : result.headers) {
         resp_headers_map[key] = value;
     }
+    // Also add response headers
+    for (const auto& [key, value] : resp.headers) {
+        resp_headers_map[key] = value;
+    }
     
-    AnalysisResult analysis = response_analyzer_->analyze(result.body, resp_headers_map);
+    // Analyze the response body for sensitive data patterns
+    AnalysisResult analysis = response_analyzer_->analyze(resp.body, resp_headers_map);
     
     if (!analysis.has_sensitive_data) {
         return;
@@ -3779,8 +3855,8 @@ void VulnEngine::checkSensitiveDataExposure(const CrawlResult& result, std::vect
                            result.url.find("/account") != std::string::npos);
     
     // Check for JSON/XML structure to detect sensitive field names
-    bool is_json = (result.body.find('{') != std::string::npos && result.body.find('}') != std::string::npos);
-    bool is_xml = (result.body.find('<') != std::string::npos && result.body.find('>') != std::string::npos);
+    bool is_json = (resp.body.find('{') != std::string::npos && resp.body.find('}') != std::string::npos);
+    bool is_xml = (resp.body.find('<') != std::string::npos && resp.body.find('>') != std::string::npos);
     
     // Check for sensitive field names in structured data
     std::vector<std::string> sensitive_field_names = {
@@ -3791,7 +3867,7 @@ void VulnEngine::checkSensitiveDataExposure(const CrawlResult& result, std::vect
     };
     
     std::vector<std::string> found_sensitive_fields;
-    std::string lower_body = result.body;
+    std::string lower_body = resp.body;
     std::transform(lower_body.begin(), lower_body.end(), lower_body.begin(), ::tolower);
     
     for (const auto& field_name : sensitive_field_names) {
@@ -3875,8 +3951,8 @@ void VulnEngine::checkSensitiveDataExposure(const CrawlResult& result, std::vect
         }
         
         // Add response snippet (first 500 chars)
-        std::string response_snippet = result.body.substr(0, 500);
-        if (result.body.length() > 500) {
+        std::string response_snippet = resp.body.substr(0, 500);
+        if (resp.body.length() > 500) {
             response_snippet += "...";
         }
         evidence["response_snippet"] = response_snippet;
@@ -3914,8 +3990,8 @@ void VulnEngine::checkSensitiveDataExposure(const CrawlResult& result, std::vect
             evidence["sensitive_field_names"] = found_sensitive_fields;
             evidence["response_format"] = is_json ? "json" : "xml";
             
-            std::string response_snippet = result.body.substr(0, 500);
-            if (result.body.length() > 500) {
+            std::string response_snippet = resp.body.substr(0, 500);
+            if (resp.body.length() > 500) {
                 response_snippet += "...";
             }
             evidence["response_snippet"] = response_snippet;
