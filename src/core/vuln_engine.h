@@ -60,47 +60,6 @@ public:
      */
     void setCallbackUrl(const std::string& url);
 
-private:
-    const HttpClient& client_;
-    double confidenceThreshold_;
-    int riskBudget_;
-    SessionManager* session_manager_;  // Optional session manager
-
-    /**
-     * @brief Check for missing or misconfigured security headers
-     * @param result Page to check
-     * @param findings List to add findings to
-     */
-    void checkSecurityHeaders(const CrawlResult& result, std::vector<Finding>& findings);
-
-    /**
-     * @brief Check for unsafe cookie settings
-     * @param result Page to check
-     * @param findings List to add findings to
-     */
-    void checkCookies(const CrawlResult& result, std::vector<Finding>& findings);
-
-    /**
-     * @brief Check for misconfigured CORS headers
-     * @param result Page to check
-     * @param findings List to add findings to
-     */
-    void checkCORS(const CrawlResult& result, std::vector<Finding>& findings);
-
-    /**
-     * @brief Check for reflected XSS vulnerabilities
-     * @param result Page to check
-     * @param findings List to add findings to
-     */
-    void checkReflectedXSS(const CrawlResult& result, std::vector<Finding>& findings);
-
-    /**
-     * @brief Check for missing CSRF protection on POST endpoints
-     * @param result Page to check
-     * @param findings List to add findings to
-     */
-    void checkCSRF(const CrawlResult& result, std::vector<Finding>& findings);
-
     /**
      * @brief Check for insecure direct object references (IDOR)
      * @param result Page to check
@@ -217,6 +176,68 @@ private:
      * @param findings List to add findings to
      */
     void checkSensitiveDataExposure(const CrawlResult& result, std::vector<Finding>& findings);
+    
+    /**
+     * @brief Generate a unique token for out-of-band detection
+     * 
+     * Creates a unique token using timestamp and random number to identify
+     * callback requests from specific vulnerability tests.
+     * 
+     * @return Unique token string (format: "sentinel_{timestamp}_{random}")
+     */
+    std::string generateCallbackToken() const;
+    
+    /**
+     * @brief Build a callback URL with a unique token appended
+     * 
+     * Constructs a callback URL by appending the token as a query parameter.
+     * Handles URLs with or without existing query parameters.
+     * 
+     * @param token Unique token to append to callback URL
+     * @return Complete callback URL with token parameter, or empty string if callback_url_ is not set
+     */
+    std::string buildCallbackUrl(const std::string& token) const;
+
+private:
+    const HttpClient& client_;
+    double confidenceThreshold_;
+    int riskBudget_;
+    SessionManager* session_manager_;  // Optional session manager
+
+    /**
+     * @brief Check for missing or misconfigured security headers
+     * @param result Page to check
+     * @param findings List to add findings to
+     */
+    void checkSecurityHeaders(const CrawlResult& result, std::vector<Finding>& findings);
+
+    /**
+     * @brief Check for unsafe cookie settings
+     * @param result Page to check
+     * @param findings List to add findings to
+     */
+    void checkCookies(const CrawlResult& result, std::vector<Finding>& findings);
+
+    /**
+     * @brief Check for misconfigured CORS headers
+     * @param result Page to check
+     * @param findings List to add findings to
+     */
+    void checkCORS(const CrawlResult& result, std::vector<Finding>& findings);
+
+    /**
+     * @brief Check for reflected XSS vulnerabilities
+     * @param result Page to check
+     * @param findings List to add findings to
+     */
+    void checkReflectedXSS(const CrawlResult& result, std::vector<Finding>& findings);
+
+    /**
+     * @brief Check for missing CSRF protection on POST endpoints
+     * @param result Page to check
+     * @param findings List to add findings to
+     */
+    void checkCSRF(const CrawlResult& result, std::vector<Finding>& findings);
     
     /**
      * @brief Check response for vulnerability indicators (SQL errors, stack traces, etc.)
@@ -360,27 +381,6 @@ private:
      *       for the specified user_id. The request is modified directly, so pass by reference.
      */
     void enhance_request_with_session(HttpRequest& req, const std::string& user_id = "") const;
-    
-    /**
-     * @brief Generate a unique token for out-of-band detection
-     * 
-     * Creates a unique token using timestamp and random number to identify
-     * callback requests from specific vulnerability tests.
-     * 
-     * @return Unique token string (format: "sentinel_{timestamp}_{random}")
-     */
-    std::string generateCallbackToken() const;
-    
-    /**
-     * @brief Build a callback URL with a unique token appended
-     * 
-     * Constructs a callback URL by appending the token as a query parameter.
-     * Handles URLs with or without existing query parameters.
-     * 
-     * @param token Unique token to append to callback URL
-     * @return Complete callback URL with token parameter, or empty string if callback_url_ is not set
-     */
-    std::string buildCallbackUrl(const std::string& token) const;
     
     /**
      * @brief Verify if a callback was received for a given token

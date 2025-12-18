@@ -79,7 +79,8 @@ TEST_CASE("OOB detection: callback URL building", "[ssrf][oob]") {
     // Test with URL that already has query parameters
     engine.setCallbackUrl("https://example.com/callback?existing=param");
     callback = engine.buildCallbackUrl(token);
-    REQUIRE(callback.find("&token=") != std::string::npos || callback.find("?token=") != std::string::npos);
+    bool has_token = (callback.find("&token=") != std::string::npos || callback.find("?token=") != std::string::npos);
+    REQUIRE(has_token);
 }
 
 TEST_CASE("OOB detection: SSRF with callback URL configured", "[ssrf][oob]") {

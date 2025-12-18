@@ -37,7 +37,7 @@ TEST_CASE("Sensitive data exposure check function exists", "[sensitive_data]") {
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/api/users";
     result.method = "GET";
-    result.body = R"({"id": 1, "name": "John Doe"})";
+R"({"id": 1, "name": "John Doe"})";
     
     std::vector<Finding> findings;
     engine.checkSensitiveDataExposure(result, findings);
@@ -53,7 +53,7 @@ TEST_CASE("Credit card detection in JSON response", "[sensitive_data][credit_car
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/api/payment";
     result.method = "GET";
-    result.body = R"({"card_number": "4111111111111111", "expiry": "12/25"})";
+R"({"card_number": "4111111111111111", "expiry": "12/25"})";
     
     std::vector<Finding> findings;
     engine.checkSensitiveDataExposure(result, findings);
@@ -70,7 +70,7 @@ TEST_CASE("SSN detection in response", "[sensitive_data][ssn]") {
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/api/users/123";
     result.method = "GET";
-    result.body = R"({"id": 123, "ssn": "123-45-6789", "name": "John Doe"})";
+R"({"id": 123, "ssn": "123-45-6789", "name": "John Doe"})";
     
     std::vector<Finding> findings;
     engine.checkSensitiveDataExposure(result, findings);
@@ -86,7 +86,7 @@ TEST_CASE("Password field detection in JSON", "[sensitive_data][password]") {
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/api/users";
     result.method = "GET";
-    result.body = R"({"id": 1, "username": "admin", "password": "secret123"})";
+R"({"id": 1, "username": "admin", "password": "secret123"})";
     
     std::vector<Finding> findings;
     engine.checkSensitiveDataExposure(result, findings);
@@ -102,7 +102,7 @@ TEST_CASE("Password field detection in XML", "[sensitive_data][password][xml]") 
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/api/users";
     result.method = "GET";
-    result.body = R"(<user><id>1</id><username>admin</username><password>secret123</password></user>)";
+R"(<user><id>1</id><username>admin</username><password>secret123</password></user>)";
     
     std::vector<Finding> findings;
     engine.checkSensitiveDataExposure(result, findings);
@@ -118,7 +118,7 @@ TEST_CASE("API key detection", "[sensitive_data][api_key]") {
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/api/config";
     result.method = "GET";
-    result.body = R"({"api_key": "AKIAIOSFODNN7EXAMPLE", "region": "us-east-1"})";
+R"({"api_key": "AKIAIOSFODNN7EXAMPLE", "region": "us-east-1"})";
     
     std::vector<Finding> findings;
     engine.checkSensitiveDataExposure(result, findings);
@@ -134,7 +134,7 @@ TEST_CASE("JWT token detection", "[sensitive_data][jwt]") {
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/api/auth";
     result.method = "GET";
-    result.body = R"({"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"})";
+R"({"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"})";
     
     std::vector<Finding> findings;
     engine.checkSensitiveDataExposure(result, findings);
@@ -150,7 +150,7 @@ TEST_CASE("Sensitive field names detection in JSON", "[sensitive_data][field_nam
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/api/users";
     result.method = "GET";
-    result.body = R"({"id": 1, "username": "admin", "password": "***", "api_secret": "hidden", "ssn": "***"})";
+R"({"id": 1, "username": "admin", "password": "***", "api_secret": "hidden", "ssn": "***"})";
     
     std::vector<Finding> findings;
     engine.checkSensitiveDataExposure(result, findings);
@@ -166,7 +166,7 @@ TEST_CASE("Sensitive field names detection in XML", "[sensitive_data][field_name
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/api/users";
     result.method = "GET";
-    result.body = R"(<user><id>1</id><username>admin</username><password>***</password><api_secret>hidden</api_secret></user>)";
+R"(<user><id>1</id><username>admin</username><password>***</password><api_secret>hidden</api_secret></user>)";
     
     std::vector<Finding> findings;
     engine.checkSensitiveDataExposure(result, findings);
@@ -182,7 +182,7 @@ TEST_CASE("Context-aware detection for user profile", "[sensitive_data][context]
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/api/user/profile";
     result.method = "GET";
-    result.body = R"({"id": 1, "email": "user@example.com", "phone": "555-1234", "ssn": "123-45-6789"})";
+R"({"id": 1, "email": "user@example.com", "phone": "555-1234", "ssn": "123-45-6789"})";
     
     std::vector<Finding> findings;
     engine.checkSensitiveDataExposure(result, findings);
@@ -199,7 +199,7 @@ TEST_CASE("No false positive for normal user data", "[sensitive_data][false_posi
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/api/user/profile";
     result.method = "GET";
-    result.body = R"({"id": 1, "name": "John Doe", "email": "john@example.com"})";
+R"({"id": 1, "name": "John Doe", "email": "john@example.com"})";
     
     std::vector<Finding> findings;
     engine.checkSensitiveDataExposure(result, findings);
@@ -240,7 +240,7 @@ TEST_CASE("Multiple sensitive data types in one response", "[sensitive_data][mul
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/api/payment";
     result.method = "GET";
-    result.body = R"({
+R"({
         "card_number": "4111111111111111",
         "ssn": "123-45-6789",
         "api_key": "AKIAIOSFODNN7EXAMPLE",
@@ -261,7 +261,7 @@ TEST_CASE("Sensitive data in error messages", "[sensitive_data][error]") {
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/api/users";
     result.method = "GET";
-    result.body = R"(Error: Database connection failed. Password: secret123, API Key: AKIAIOSFODNN7EXAMPLE)";
+R"(Error: Database connection failed. Password: secret123, API Key: AKIAIOSFODNN7EXAMPLE)";
     
     std::vector<Finding> findings;
     engine.checkSensitiveDataExposure(result, findings);

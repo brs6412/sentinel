@@ -163,7 +163,7 @@ TEST_CASE("IDOR identifies IDs in request body", "[idor][id_detection][body]") {
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/api/users";
     result.method = "POST";
-    result.body = R"({"user_id": 123, "action": "update"})";
+R"({"user_id": 123, "action": "update"})";
     
     std::vector<Finding> findings;
     engine.checkIDOR(result, findings);
@@ -256,7 +256,7 @@ TEST_CASE("IDOR handles POST requests with body", "[idor][post]") {
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/api/users/update";
     result.method = "POST";
-    result.body = R"({"user_id": 123, "name": "John Doe"})";
+R"({"user_id": 123, "name": "John Doe"})";
     
     std::vector<Finding> findings;
     engine.checkIDOR(result, findings);
@@ -275,7 +275,7 @@ TEST_CASE("IDOR handles PUT requests", "[idor][put]") {
     CrawlResult result;
     result.url = "http://127.0.0.1:8080/api/users/123";
     result.method = "PUT";
-    result.body = R"({"name": "John Doe"})";
+R"({"name": "John Doe"})";
     
     std::vector<Finding> findings;
     engine.checkIDOR(result, findings);
